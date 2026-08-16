@@ -26,23 +26,37 @@ export type PlannableTask = {
   estimateMinutes: number | null;
 };
 
+/**
+ * What the split is a share *of*. A day with tasks but no estimates still has
+ * an honest answer to "how much of this advances a quest" — it just counts
+ * tasks instead of minutes. Saying "0%" there would be a lie, and it was the
+ * first thing the Today page said to anyone who hadn't estimated yet.
+ */
+export type SplitBasis = "estimates" | "tasks" | "empty";
+
 export type DayProjection = {
   /** Sum of estimates. Tasks without one contribute nothing but are counted. */
   plannedMinutes: number;
   questMinutes: number;
   adminMinutes: number;
+  /** Share of `basis`, not necessarily of minutes — read `basis` before wording it. */
   questShare: number;
   adminShare: number;
+  basis: SplitBasis;
   taskCount: number;
+  questTaskCount: number;
   unestimatedCount: number;
 };
 
 export function projectDay(tasks: readonly PlannableTask[]): DayProjection {
   let questMinutes = 0;
   let adminMinutes = 0;
+  let questTaskCount = 0;
   let unestimatedCount = 0;
 
   for (const task of tasks) {
+    if (task.questId !== null) questTaskCount += 1;
+
     if (task.estimateMinutes === null) {
       unestimatedCount += 1;
       continue;
@@ -53,16 +67,48 @@ export function projectDay(tasks: readonly PlannableTask[]): DayProjection {
   }
 
   const plannedMinutes = questMinutes + adminMinutes;
+  const taskCount = tasks.length;
+
+  const basis: SplitBasis =
+    plannedMinutes > 0 ? "estimates" : taskCount > 0 ? "tasks" : "empty";
+
+  const questShare =
+    basis === "estimates"
+      ? share(questMinutes, plannedMinutes)
+      : share(questTaskCount, taskCount);
 
   return {
     plannedMinutes,
     questMinutes,
     adminMinutes,
-    questShare: share(questMinutes, plannedMinutes),
-    adminShare: share(adminMinutes, plannedMinutes),
-    taskCount: tasks.length,
+    questShare,
+    adminShare: basis === "empty" ? 0 : 1 - questShare,
+    basis,
+    taskCount,
+    questTaskCount,
     unestimatedCount,
   };
+}
+
+/** What the day actually cost, split the same way the projection is. */
+export type TrackedSplit = {
+  totalMinutes: number;
+  questMinutes: number;
+  adminMinutes: number;
+};
+
+export function trackDay(
+  tasks: readonly { questId: string | null; trackedMinutes: number }[],
+): TrackedSplit {
+  let questMinutes = 0;
+  let adminMinutes = 0;
+
+  for (const task of tasks) {
+    if (task.questId === null) adminMinutes += task.trackedMinutes;
+    else questMinutes += task.trackedMinutes;
+  }
+
+  return { totalMinutes: questMinutes + adminMinutes, questMinutes, adminMinutes };
 }
 
 /**

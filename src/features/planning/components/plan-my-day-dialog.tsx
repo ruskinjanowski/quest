@@ -37,6 +37,8 @@ import { SplitBar } from "./split-bar";
  * discovering it afterwards on Insights.
  */
 
+const RELATIVE_DAYS = new Set(["Today", "Tomorrow", "Yesterday"]);
+
 type Draft = {
   planned: boolean;
   questId: string | null;
@@ -53,6 +55,7 @@ export function PlanMyDayDialog({
   unfinishedTasks,
   backlogTasks,
   capacityMinutes = DAY_CAPACITY_MINUTES,
+  autoOpen = false,
 }: {
   dateKey: string;
   dayLabel: string;
@@ -61,8 +64,14 @@ export function PlanMyDayDialog({
   unfinishedTasks: readonly TaskRow[];
   backlogTasks: readonly TaskRow[];
   capacityMinutes?: number;
+  /**
+   * Start open. Only meaningful on first mount — dismissing it stays dismissed
+   * for the rest of the visit, since the state lives here and revalidation
+   * doesn't remount the component.
+   */
+  autoOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -178,7 +187,10 @@ function PlanMyDayContent({
   return (
     <DialogContent className="flex max-h-[90dvh] flex-col gap-0 p-0 sm:max-w-2xl">
       <DialogHeader className="border-b px-6 py-4">
-        <DialogTitle>Plan {dayLabel.toLowerCase()}</DialogTitle>
+        {/* "Plan today" reads better lowercased; "Plan tuesday" does not. */}
+        <DialogTitle>
+          Plan {RELATIVE_DAYS.has(dayLabel) ? dayLabel.toLowerCase() : dayLabel}
+        </DialogTitle>
         <DialogDescription>Which quests will you advance today?</DialogDescription>
       </DialogHeader>
 
@@ -255,10 +267,16 @@ function PlanMyDayContent({
               {formatPercent(projection.questShare)}
             </span>{" "}
             quest · {formatPercent(projection.adminShare)} admin
+            {projection.basis === "tasks" && (
+              <span className="text-muted-foreground"> by task</span>
+            )}
           </span>
         </div>
 
-        <SplitBar projection={projection} />
+        <SplitBar
+          questShare={projection.questShare}
+          adminShare={projection.adminShare}
+        />
 
         <p
           className={cn(

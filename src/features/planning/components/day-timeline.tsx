@@ -84,96 +84,100 @@ export function DayTimeline({ blocks }: { blocks: readonly DayBlock[] }) {
   const trackedLanes = packLanes(blocks);
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-xl">
-        {/* Hour ruler. The gridlines below hang off these same positions. */}
-        <div className="relative h-4">
-          {hours.map((hour) => (
-            <span
-              key={hour}
-              className="text-muted-foreground absolute top-0 text-[11px] tabular-nums"
-              style={{ left: `${left(hour * 60)}%` }}
-            >
-              {formatTimeOfDay(hour * 60)}
-            </span>
-          ))}
-        </div>
+    <div>
+      <div className="overflow-x-auto">
+        <div className="min-w-xl">
+          {/* Hour ruler. The gridlines below hang off these same positions. */}
+          <div className="relative h-4">
+            {hours.map((hour) => (
+              <span
+                key={hour}
+                className="text-muted-foreground absolute top-0 text-[11px] tabular-nums"
+                style={{ left: `${left(hour * 60)}%` }}
+              >
+                {formatTimeOfDay(hour * 60)}
+              </span>
+            ))}
+          </div>
 
-        <div className="relative mt-1.5 flex flex-col gap-1">
-          {hours.map((hour) => (
-            <span
-              key={hour}
-              aria-hidden
-              className="bg-border/60 absolute inset-y-0 w-px"
-              style={{ left: `${left(hour * 60)}%` }}
-            />
-          ))}
+          <div className="relative mt-1.5 flex flex-col gap-1">
+            {hours.map((hour) => (
+              <span
+                key={hour}
+                aria-hidden
+                className="bg-border/60 absolute inset-y-0 w-px"
+                style={{ left: `${left(hour * 60)}%` }}
+              />
+            ))}
 
-          {calendarLanes.map((lane, index) => (
-            <div key={`calendar-${index}`} className="relative h-7">
-              {lane.map((event) => (
-                <div
-                  key={event.title}
-                  title={`${event.title} · ${formatTimeOfDay(event.startMinute)}`}
-                  className="bg-muted/70 text-muted-foreground absolute inset-y-0 flex items-center overflow-hidden rounded border border-dashed px-1.5 text-[11px]"
-                  style={{ left: `${left(event.startMinute)}%`, width: `${width(event)}%` }}
-                >
-                  {event.endMinute - event.startMinute >= LABEL_MIN_MINUTES && (
-                    <span className="truncate">{event.title}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-
-          {trackedLanes.map((lane, index) => (
-            <div key={`tracked-${index}`} className="relative h-7">
-              {lane.map((block) => {
-                // `color-mix` rather than appending an alpha suffix to a hex
-                // string: Admin's colour is a CSS variable, and
-                // `var(--admin)22` is not a colour.
-                const color = questColorHex(block.questColor);
-
-                return (
+            {calendarLanes.map((lane, index) => (
+              <div key={`calendar-${index}`} className="relative h-7">
+                {lane.map((event) => (
                   <div
-                    key={block.id}
-                    title={`${block.title} · ${formatTimeOfDay(block.startMinute)}`}
-                    className={cn(
-                      "absolute inset-y-0 flex items-center overflow-hidden rounded px-1.5 text-[11px]",
-                    )}
-                    style={{
-                      left: `${left(block.startMinute)}%`,
-                      // A few-second entry is still real tracked time; without a
-                      // floor it renders as a bare 2px border and reads as a
-                      // rendering artefact rather than a very short block.
-                      width: `${width(block)}%`,
-                      minWidth: 4,
-                      backgroundColor: `color-mix(in oklch, ${color} 16%, transparent)`,
-                      borderLeft: `2px solid ${color}`,
-                      boxShadow: block.running ? `0 0 0 1.5px ${color}` : undefined,
-                    }}
+                    key={event.title}
+                    title={`${event.title} · ${formatTimeOfDay(event.startMinute)}`}
+                    className="bg-muted/70 text-muted-foreground absolute inset-y-0 flex items-center overflow-hidden rounded border border-dashed px-1.5 text-[11px]"
+                    style={{ left: `${left(event.startMinute)}%`, width: `${width(event)}%` }}
                   >
-                    {block.endMinute - block.startMinute >= LABEL_MIN_MINUTES && (
-                      <span className="truncate">{block.title}</span>
+                    {event.endMinute - event.startMinute >= LABEL_MIN_MINUTES && (
+                      <span className="truncate">{event.title}</span>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          ))}
+                ))}
+              </div>
+            ))}
 
-          {trackedLanes.length === 0 && (
-            <p className="text-muted-foreground relative py-1 text-xs">
-              Nothing tracked yet today.
-            </p>
-          )}
+            {trackedLanes.map((lane, index) => (
+              <div key={`tracked-${index}`} className="relative h-7">
+                {lane.map((block) => {
+                  // `color-mix` rather than appending an alpha suffix to a hex
+                  // string: Admin's colour is a CSS variable, and
+                  // `var(--admin)22` is not a colour.
+                  const color = questColorHex(block.questColor);
+
+                  return (
+                    <div
+                      key={block.id}
+                      title={`${block.title} · ${formatTimeOfDay(block.startMinute)}`}
+                      className={cn(
+                        "absolute inset-y-0 flex items-center overflow-hidden rounded px-1.5 text-[11px]",
+                      )}
+                      style={{
+                        left: `${left(block.startMinute)}%`,
+                        // A few-second entry is still real tracked time; without a
+                        // floor it renders as a bare 2px border and reads as a
+                        // rendering artefact rather than a very short block.
+                        width: `${width(block)}%`,
+                        minWidth: 4,
+                        backgroundColor: `color-mix(in oklch, ${color} 16%, transparent)`,
+                        borderLeft: `2px solid ${color}`,
+                        boxShadow: block.running ? `0 0 0 1.5px ${color}` : undefined,
+                      }}
+                    >
+                      {block.endMinute - block.startMinute >= LABEL_MIN_MINUTES && (
+                        <span className="truncate">{block.title}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            {trackedLanes.length === 0 && (
+              <p className="text-muted-foreground relative py-1 text-xs">
+                Nothing tracked yet today.
+              </p>
+            )}
+          </div>
         </div>
-
-        <p className="text-muted-foreground mt-3 text-xs">
-          Tracked time, coloured by quest. Dashed blocks are calendar events.
-          Hover any block for its name.
-        </p>
       </div>
+
+      {/* Outside the scroll container: a caption you have to scroll sideways to
+          finish reading isn't a caption. */}
+      <p className="text-muted-foreground mt-3 text-xs">
+        Tracked time, coloured by quest. Dashed blocks are calendar events.
+        Hover any block for its name.
+      </p>
     </div>
   );
 }

@@ -135,6 +135,7 @@ export default async function QuestDetailPage({
             <AddTaskForm
               quests={[questOption]}
               plannedDate={dateKey}
+              defaultQuestId={quest.id}
               placeholder="Add a task to this quest…"
             />
             {tasks.length === 0 ? (
@@ -148,7 +149,6 @@ export default async function QuestDetailPage({
                 quests={[questOption]}
                 dateKey={dateKey}
                 nextDateKey={shiftDateKey(dateKey, 1, timeZone)}
-                grouped={false}
               />
             )}
           </section>
