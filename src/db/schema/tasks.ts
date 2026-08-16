@@ -30,6 +30,8 @@ export const tasks = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     questId: uuid("quest_id").references(() => quests.id, { onDelete: "set null" }),
     title: text("title").notNull(),
+    /** Optional longer description — Clockify-style detail on what the work is. */
+    notes: text("notes"),
     /** Calendar day, in the user's local timezone. Null = backlog. */
     plannedDate: date("planned_date"),
     estimateMinutes: integer("estimate_minutes"),

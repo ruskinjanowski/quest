@@ -5,7 +5,9 @@ import {
   ArrowUp,
   CalendarPlus,
   Clock,
+  FileText,
   GripVertical,
+  History,
   Inbox,
   MoreHorizontal,
   SkipForward,
@@ -22,8 +24,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditTimeDialog } from "@/features/time-tracking/components/edit-time-dialog";
 import { LogTimeDialog } from "@/features/time-tracking/components/log-time-dialog";
 import { TimerButton } from "@/features/time-tracking/components/timer-button";
+import { TaskNotesDialog } from "./task-notes-dialog";
 import {
   QuestPicker,
   type QuestOption,
@@ -99,6 +103,8 @@ export function TaskRow({
   drag?: RowDrag;
 }) {
   const [logOpen, setLogOpen] = useState(false);
+  const [editTimeOpen, setEditTimeOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const toggle = useAction(toggleTask);
   const update = useAction(updateTask);
   const remove = useAction(deleteTask);
@@ -134,8 +140,16 @@ export function TaskRow({
       />
 
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-sm", task.done && "line-through")} title={task.title}>
-          {task.title}
+        <p className={cn("flex items-center gap-1.5 text-sm", task.done && "line-through")}>
+          <span className="truncate" title={task.title}>
+            {task.title}
+          </span>
+          {task.notes && (
+            <FileText
+              aria-label="Has notes"
+              className="text-muted-foreground/70 size-3.5 shrink-0"
+            />
+          )}
         </p>
       </div>
 
@@ -223,6 +237,16 @@ export function TaskRow({
               <Clock className="size-4" /> Log time manually
             </DropdownMenuItem>
 
+            {task.trackedMinutes > 0 && (
+              <DropdownMenuItem onSelect={() => setEditTimeOpen(true)}>
+                <History className="size-4" /> Edit tracked time
+              </DropdownMenuItem>
+            )}
+
+            <DropdownMenuItem onSelect={() => setNotesOpen(true)}>
+              <FileText className="size-4" /> {task.notes ? "Edit notes" : "Add notes"}
+            </DropdownMenuItem>
+
             {task.plannedDate === null ? (
               <DropdownMenuItem
                 onSelect={() => update.run({ id: task.id, plannedDate: dateKey ?? null })}
@@ -266,6 +290,21 @@ export function TaskRow({
         dateKey={dateKey}
         open={logOpen}
         onOpenChange={setLogOpen}
+      />
+
+      <EditTimeDialog
+        taskId={task.id}
+        taskTitle={task.title}
+        open={editTimeOpen}
+        onOpenChange={setEditTimeOpen}
+      />
+
+      <TaskNotesDialog
+        taskId={task.id}
+        taskTitle={task.title}
+        notes={task.notes}
+        open={notesOpen}
+        onOpenChange={setNotesOpen}
       />
     </li>
   );

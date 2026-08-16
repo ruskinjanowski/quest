@@ -1,171 +1,87 @@
-import { AlertTriangle, Hourglass } from "lucide-react";
+"use client";
+
 import type { ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatDuration, formatPercent } from "@/lib/duration";
-import { cn } from "@/lib/utils";
+import { useRunningElapsedMinutes } from "@/features/time-tracking/use-running-elapsed";
 import {
-  DAY_CAPACITY_MINUTES,
-  overloadMinutes,
-  projectDay,
-  trackDay,
-  workloadFor,
-} from "../domain";
-import { SplitBar } from "./split-bar";
+  formatDuration,
+  formatPercent,
+  formatStopwatch,
+  share,
+} from "@/lib/duration";
+import { projectDay, trackDay } from "../domain";
 
 /**
- * The day's shape, above the list: what you signed up for, what it has cost so
- * far, and how much of either advances a quest.
+ * A slim day strip: what the day has cost so far, how much of it advanced a
+ * quest, and — below — its shape on a time axis.
  *
- * The two bars share one scale (the larger of planned and tracked), so the
- * tracked bar visibly fills toward the planned one. They used to be a single
- * bar over estimates alone, which meant a day with real tracked hours on it
- * could still announce "0% of the plan advances a quest" directly beneath a
- * header counting those hours — two measurements, one label, no way to tell.
- *
- * Sunsama's workload warning is the honest half of daily planning — a list that
- * doesn't fit is a decision you should make in the morning, not discover at
- * 6pm — so the overload line is stated plainly rather than hidden in a colour.
+ * The live quest-vs-admin split already lives in the header counter, so this no
+ * longer repeats it as a pair of bars; it states the day's total in one line and
+ * hands the rest of the card to the timeline. Keeping the two in one card means
+ * the number and the picture of the day share a frame.
  */
 export function DaySummary({
   tasks,
-  capacityMinutes = DAY_CAPACITY_MINUTES,
+  asOf,
   children,
 }: {
   tasks: readonly {
     questId: string | null;
     estimateMinutes: number | null;
     trackedMinutes: number;
+    isRunning: boolean;
   }[];
-  capacityMinutes?: number;
-  /** The day's shape, drawn under the same rule as its numbers. */
+  /** Server render time (ISO) — the moment `trackedMinutes` was true. */
+  asOf: string;
+  /** The day's shape (the timeline), drawn beneath the summary line. */
   children?: ReactNode;
 }) {
-  const projection = projectDay(tasks);
-  const tracked = trackDay(tasks);
-  const workload = workloadFor(projection.plannedMinutes, capacityMinutes);
-  const over = overloadMinutes(projection.plannedMinutes, capacityMinutes);
+  const running = tasks.some((task) => task.isRunning);
+  const elapsed = useRunningElapsedMinutes(asOf, running);
 
-  // One scale for both bars, so their lengths are comparable rather than each
-  // being normalised to its own total.
-  const scale = Math.max(projection.plannedMinutes, tracked.totalMinutes, 1);
+  // The running task's server total plus what's accrued since, so the tracked
+  // figure grows in real time rather than at reload time.
+  const live = tasks.map((task) =>
+    task.isRunning
+      ? { ...task, trackedMinutes: task.trackedMinutes + elapsed }
+      : task,
+  );
+
+  const tracked = trackDay(live);
+  const projection = projectDay(tasks);
+  const questShare = share(tracked.questMinutes, tracked.totalMinutes);
 
   return (
     <Card className="gap-0 py-4">
-      <CardContent className="space-y-3 px-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
-          <p>
-            <span className="font-medium tabular-nums">
-              {projection.plannedMinutes > 0
-                ? formatDuration(projection.plannedMinutes)
-                : projection.taskCount}
-            </span>{" "}
-            <span className="text-muted-foreground">
-              {projection.plannedMinutes > 0
-                ? `planned across ${projection.taskCount} ${projection.taskCount === 1 ? "task" : "tasks"}`
-                : `${projection.taskCount === 1 ? "task" : "tasks"} planned, none estimated`}
-            </span>
-          </p>
-
+      <CardContent className="space-y-4 px-4">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
           <p className="tabular-nums">
-            <span className="font-medium">{formatDuration(tracked.totalMinutes)}</span>{" "}
-            <span className="text-muted-foreground">tracked</span>
-          </p>
-        </div>
-
-        <div className="space-y-1.5">
-          {projection.plannedMinutes > 0 && (
-            <BarRow
-              label="Planned"
-              questShare={projection.questMinutes / scale}
-              adminShare={projection.adminMinutes / scale}
-              muted
-              srLabel={`Planned: ${formatDuration(projection.questMinutes)} on quests, ${formatDuration(projection.adminMinutes)} on admin`}
-            />
-          )}
-
-          <BarRow
-            label="Tracked"
-            questShare={tracked.questMinutes / scale}
-            adminShare={tracked.adminMinutes / scale}
-            srLabel={`Tracked: ${formatDuration(tracked.questMinutes)} on quests, ${formatDuration(tracked.adminMinutes)} on admin`}
-          />
-        </div>
-
-        <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span>
-            <span className="text-foreground font-medium">
-              {formatPercent(projection.questShare)}
+            <span className="font-medium">
+              {running
+                ? formatStopwatch(tracked.totalMinutes)
+                : formatDuration(tracked.totalMinutes)}
             </span>{" "}
-            {projection.basis === "estimates"
-              ? "of the plan advances a quest"
-              : `of today's tasks advance a quest (${projection.questTaskCount} of ${projection.taskCount})`}
-          </span>
+            <span className="text-muted-foreground">tracked today</span>
+          </p>
 
-          {projection.unestimatedCount > 0 && (
-            <span className="flex items-center gap-1.5">
-              <Hourglass className="size-3" />
-              {projection.unestimatedCount} without an estimate
-            </span>
+          {tracked.totalMinutes > 0 && (
+            <p className="text-muted-foreground">
+              <span className="text-foreground font-medium">
+                {formatPercent(questShare)}
+              </span>{" "}
+              on quests
+            </p>
+          )}
+
+          {projection.plannedMinutes > 0 && (
+            <p className="text-muted-foreground tabular-nums">
+              {formatDuration(projection.plannedMinutes)} planned
+            </p>
           )}
         </div>
 
-        {over > 0 ? (
-          <p className="text-destructive flex items-center gap-1.5 text-xs">
-            <AlertTriangle className="size-3.5 shrink-0" />
-            {formatDuration(over)} more than a {formatDuration(capacityMinutes)} day —
-            something here is going to slip.
-          </p>
-        ) : (
-          <p
-            className={cn(
-              "text-muted-foreground text-xs",
-              workload === "full" && "text-foreground",
-            )}
-          >
-            {projection.basis === "tasks"
-              ? "Estimate a few of these to see what the day actually costs."
-              : WORKLOAD_NOTE[workload]}
-          </p>
-        )}
-
-        {children && <div className="border-t pt-4">{children}</div>}
+        {children && <div>{children}</div>}
       </CardContent>
     </Card>
   );
 }
-
-function BarRow({
-  label,
-  questShare,
-  adminShare,
-  srLabel,
-  muted,
-}: {
-  label: string;
-  questShare: number;
-  adminShare: number;
-  srLabel: string;
-  muted?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="text-muted-foreground w-14 shrink-0 text-[10px] font-medium tracking-wide uppercase">
-        {label}
-      </span>
-      <SplitBar
-        questShare={questShare}
-        adminShare={adminShare}
-        muted={muted}
-        label={srLabel}
-      />
-    </div>
-  );
-}
-
-const WORKLOAD_NOTE = {
-  empty: "Nothing planned yet.",
-  light: "A light day — room for one more quest task.",
-  balanced: "A realistic day.",
-  full: "A full day. This is about as much as fits.",
-  over: "",
-} as const;

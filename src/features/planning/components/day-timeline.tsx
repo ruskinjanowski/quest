@@ -2,7 +2,6 @@ import { questColorHex } from "@/lib/quest-colors";
 import { formatTimeOfDay } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { DayBlock } from "../queries";
-import { STUB_CALENDAR_EVENTS } from "./calendar-events-stub";
 
 /**
  * The day on a time axis (PRODUCT_PLAN 1.4, the read-only variant).
@@ -17,7 +16,9 @@ import { STUB_CALENDAR_EVENTS } from "./calendar-events-stub";
  * the task list a third of the page to show 10px labels.
  *
  * Blocks are tracked time, coloured by quest — so the strip is a second view of
- * the same split the header counts, not a separate source of truth.
+ * the same split the header counts, not a separate source of truth. It shows
+ * only what was actually recorded; there is no synced calendar in the prototype
+ * (PRODUCT_PLAN P3), so nothing is faked onto the axis.
  */
 
 const DEFAULT_START_HOUR = 8;
@@ -60,12 +61,10 @@ export function DayTimeline({ blocks }: { blocks: readonly DayBlock[] }) {
   const earliest = Math.min(
     DEFAULT_START_HOUR * 60,
     ...blocks.map((block) => block.startMinute),
-    ...STUB_CALENDAR_EVENTS.map((event) => event.startMinute),
   );
   const latest = Math.max(
     DEFAULT_END_HOUR * 60,
     ...blocks.map((block) => block.endMinute),
-    ...STUB_CALENDAR_EVENTS.map((event) => event.endMinute),
   );
 
   const startHour = Math.floor(earliest / 60);
@@ -80,7 +79,6 @@ export function DayTimeline({ blocks }: { blocks: readonly DayBlock[] }) {
   const width = (span: Span) =>
     ((span.endMinute - span.startMinute) / spanMinutes) * 100;
 
-  const calendarLanes = packLanes(STUB_CALENDAR_EVENTS);
   const trackedLanes = packLanes(blocks);
 
   return (
@@ -108,23 +106,6 @@ export function DayTimeline({ blocks }: { blocks: readonly DayBlock[] }) {
                 className="bg-border/60 absolute inset-y-0 w-px"
                 style={{ left: `${left(hour * 60)}%` }}
               />
-            ))}
-
-            {calendarLanes.map((lane, index) => (
-              <div key={`calendar-${index}`} className="relative h-7">
-                {lane.map((event) => (
-                  <div
-                    key={event.title}
-                    title={`${event.title} · ${formatTimeOfDay(event.startMinute)}`}
-                    className="bg-muted/70 text-muted-foreground absolute inset-y-0 flex items-center overflow-hidden rounded border border-dashed px-1.5 text-[11px]"
-                    style={{ left: `${left(event.startMinute)}%`, width: `${width(event)}%` }}
-                  >
-                    {event.endMinute - event.startMinute >= LABEL_MIN_MINUTES && (
-                      <span className="truncate">{event.title}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
             ))}
 
             {trackedLanes.map((lane, index) => (
@@ -175,8 +156,7 @@ export function DayTimeline({ blocks }: { blocks: readonly DayBlock[] }) {
       {/* Outside the scroll container: a caption you have to scroll sideways to
           finish reading isn't a caption. */}
       <p className="text-muted-foreground mt-3 text-xs">
-        Tracked time, coloured by quest. Dashed blocks are calendar events.
-        Hover any block for its name.
+        Tracked time, coloured by quest. Hover any block for its name.
       </p>
     </div>
   );

@@ -24,7 +24,8 @@ export async function TodayCounter() {
     <LiveSplitCounter
       questMinutes={summary.questMinutes}
       adminMinutes={summary.adminMinutes}
-      runningSince={running ? new Date().toISOString() : null}
+      asOf={new Date().toISOString()}
+      running={running !== null}
       runningIsQuest={Boolean(running?.questId)}
     />
   );

@@ -1,13 +1,13 @@
 "use client";
 
 import { Pause, Play } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAction } from "@/hooks/use-action";
-import { formatClock } from "@/lib/duration";
+import { formatClock, formatStopwatch } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 import { startTimer, stopTimer } from "../actions";
+import { useRunningElapsedMinutes } from "../use-running-elapsed";
 
 /**
  * Clockify-lite (PRODUCT_PLAN 0.4). Starting this timer stops whatever else was
@@ -30,35 +30,26 @@ export function TimerButton({
 }) {
   const start = useAction(startTimer);
   const stop = useAction(stopTimer);
-  const [sinceRenderMs, setSinceRenderMs] = useState(0);
 
   // While running, the server-rendered total goes stale; count the difference.
-  useEffect(() => {
-    if (!running) return;
-
-    const renderedAt = new Date(asOf).getTime();
-    const interval = setInterval(
-      () => setSinceRenderMs(Math.max(0, Date.now() - renderedAt)),
-      1_000,
-    );
-
-    return () => clearInterval(interval);
-  }, [running, asOf]);
+  const elapsed = useRunningElapsedMinutes(asOf, running);
 
   const pending = start.pending || stop.pending;
-  const displayMinutes = trackedMinutes + (running ? sinceRenderMs / 60_000 : 0);
+  const displayMinutes = trackedMinutes + elapsed;
   const label = running ? "Stop timer" : "Start timer";
 
   return (
     <div className="flex items-center gap-1.5">
+      {/* Fixed width, sized for the running form: gaining a `:ss` shouldn't
+          shove the button under the cursor sideways. */}
       <span
         className={cn(
-          "text-xs tabular-nums",
+          "min-w-14 text-right text-xs tabular-nums",
           running ? "text-foreground font-medium" : "text-muted-foreground",
           displayMinutes < 1 && !running && "opacity-40",
         )}
       >
-        {formatClock(displayMinutes)}
+        {running ? formatStopwatch(displayMinutes) : formatClock(displayMinutes)}
       </span>
 
       <Tooltip>

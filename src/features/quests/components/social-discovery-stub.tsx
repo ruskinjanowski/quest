@@ -1,4 +1,5 @@
 import { Users } from "lucide-react";
+import { DemoBadge } from "@/components/demo-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
@@ -21,6 +22,10 @@ export function SocialDiscoveryStub({ questName }: { questName: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
           <Users className="size-4" /> Others on this quest
+          <DemoBadge
+            className="ml-auto"
+            hint="Social discovery is a phase-two idea. These numbers are hardcoded."
+          />
         </CardTitle>
       </CardHeader>
 

@@ -59,6 +59,7 @@ export async function createTask(input: CreateTaskInput): Promise<ActionResult<T
     .values({
       userId: user.id,
       title: parsed.data.title,
+      notes: parsed.data.notes,
       questId: parsed.data.questId,
       plannedDate: parsed.data.plannedDate,
       estimateMinutes: parsed.data.estimateMinutes,

@@ -7,8 +7,17 @@ export const dateKeyField = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a yyyy-MM-dd date.");
 
+/** A note is optional; an empty string is stored as null so "no note" is one value. */
+const notesField = z
+  .string()
+  .trim()
+  .max(2000)
+  .transform((value) => (value.length > 0 ? value : null))
+  .nullable();
+
 export const createTaskSchema = z.object({
   title: z.string().trim().min(1, "Give the task a title.").max(200),
+  notes: notesField.default(null),
   questId: questIdField.default(null),
   plannedDate: dateKeyField.nullable().default(null),
   estimateMinutes: z.number().int().min(1).max(24 * 60).nullable().default(null),
@@ -17,6 +26,7 @@ export const createTaskSchema = z.object({
 export const updateTaskSchema = z.object({
   id: z.uuid(),
   title: z.string().trim().min(1, "Give the task a title.").max(200).optional(),
+  notes: notesField.optional(),
   questId: questIdField.optional(),
   plannedDate: dateKeyField.nullable().optional(),
   estimateMinutes: z.number().int().min(1).max(24 * 60).nullable().optional(),

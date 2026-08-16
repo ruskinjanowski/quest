@@ -16,7 +16,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-1 flex-col lg:flex-row">
-      <aside className="bg-muted/30 flex shrink-0 flex-col gap-6 border-b p-3 lg:h-dvh lg:w-56 lg:border-r lg:border-b-0 lg:p-4">
+      {/* `h-dvh` alone gave the rail a fixed one-screen box that scrolled away
+          with the page, so its background and right border stopped mid-page on
+          anything taller than the viewport. Sticky pins it instead: navigation
+          stays reachable, and the border runs the full height of what you see.
+          `self-start` keeps the flex row from stretching it back out, which
+          would leave it nothing to stick within. */}
+      <aside className="bg-muted/30 flex shrink-0 flex-col gap-6 border-b p-3 lg:sticky lg:top-0 lg:h-dvh lg:w-56 lg:self-start lg:border-r lg:border-b-0 lg:p-4">
         <Link href="/today" className="hidden px-2 text-lg font-semibold lg:block">
           Quest
         </Link>

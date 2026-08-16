@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CalendarDays, Settings, Swords } from "lucide-react";
+import { BarChart3, CalendarDays, Inbox, Settings, Swords } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
  */
 const NAV_ITEMS = [
   { href: "/today", label: "Today", icon: CalendarDays },
+  { href: "/backlog", label: "Backlog", icon: Inbox },
   { href: "/quests", label: "Quests", icon: Swords },
   { href: "/insights", label: "Insights", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -20,9 +21,9 @@ export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    // A four-column grid on phones rather than a flex row: the row sized itself
-    // from its labels and pushed "Settings" off the right edge at 375px.
-    <nav className="grid grid-cols-4 gap-1 lg:flex lg:flex-col">
+    // A fixed grid on phones rather than a flex row: the row sized itself from
+    // its labels and pushed the last item off the right edge at 375px.
+    <nav className="grid grid-cols-5 gap-1 lg:flex lg:flex-col">
       {NAV_ITEMS.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 

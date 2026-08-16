@@ -14,6 +14,7 @@ import { listEntriesForTasks } from "../time-tracking/queries";
 export type TaskRow = {
   id: string;
   title: string;
+  notes: string | null;
   questId: string | null;
   questName: string | null;
   questColor: string | null;
@@ -28,6 +29,7 @@ export type TaskRow = {
 const taskSelection = {
   id: tasks.id,
   title: tasks.title,
+  notes: tasks.notes,
   questId: tasks.questId,
   questName: quests.name,
   questColor: quests.color,

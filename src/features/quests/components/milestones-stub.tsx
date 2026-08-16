@@ -1,3 +1,4 @@
+import { DemoBadge } from "@/components/demo-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QuestHealthBadge } from "./quest-health-badge";
 import type { QuestHealth } from "@/db/schema";
@@ -20,7 +21,13 @@ export function MilestonesStub() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Milestones</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          Milestones
+          <DemoBadge
+            className="ml-auto"
+            hint="Display-only. The prototype's quests are flat; milestones are shown to illustrate the shape, not stored."
+          />
+        </CardTitle>
       </CardHeader>
 
       <CardContent>

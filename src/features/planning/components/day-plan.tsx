@@ -8,7 +8,8 @@ import { AddTaskForm } from "@/features/tasks/components/add-task-form";
 import { TaskRow } from "@/features/tasks/components/task-row";
 import { reorderTasks, updateTask } from "@/features/tasks/actions";
 import type { TaskRow as TaskRowData } from "@/features/tasks/queries";
-import { formatHours } from "@/lib/duration";
+import { useRunningElapsedMinutes } from "@/features/time-tracking/use-running-elapsed";
+import { formatHours, formatStopwatch } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 
 /**
@@ -123,6 +124,13 @@ export function DayPlan({
   const groups = groupByQuest(view, quests);
   const flat = groups.flatMap((group) => group.tasks);
 
+  // One ticker for the page: only the group holding the running task moves, and
+  // it moves in step with that task's own timer.
+  const elapsed = useRunningElapsedMinutes(
+    asOf,
+    view.some((task) => task.isRunning),
+  );
+
   function commit(move: Move) {
     startTransition(async () => {
       applyOptimistic(move);
@@ -206,86 +214,97 @@ export function DayPlan({
 
   return (
     <div className="space-y-6">
-      {groups.map((group) => (
-        <section
-          key={group.key}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDropGroupKey(group.key);
-          }}
-          onDragLeave={() => setDropGroupKey((current) => (current === group.key ? null : current))}
-          onDrop={(event) => {
-            event.preventDefault();
-            dropOnGroup(group);
-          }}
-          className={cn(
-            "rounded-lg transition-colors",
-            dropGroupKey === group.key && draggingId !== null && "bg-muted/50",
-          )}
-        >
-          <header className="mb-1 flex items-center justify-between gap-3 px-2">
-            <h2 className="flex items-center gap-2 text-sm font-medium">
-              <QuestDot color={group.color} />
-              {group.name}
-            </h2>
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {formatHours(group.trackedMinutes)}
-            </span>
-          </header>
+      {groups.map((group) => {
+        const live = group.tasks.some((task) => task.isRunning);
 
-          <ul className="divide-border/60 divide-y">
-            {group.tasks.map((task, index) => {
-              const previous = group.tasks[index - 1];
-              const next = group.tasks[index + 1];
+        return (
+          <section
+            key={group.key}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDropGroupKey(group.key);
+            }}
+            onDragLeave={() => setDropGroupKey((current) => (current === group.key ? null : current))}
+            onDrop={(event) => {
+              event.preventDefault();
+              dropOnGroup(group);
+            }}
+            className={cn(
+              "rounded-lg transition-colors",
+              dropGroupKey === group.key && draggingId !== null && "bg-muted/50",
+            )}
+          >
+            <header className="mb-1 flex items-center justify-between gap-3 px-2">
+              <h2 className="flex items-center gap-2 text-sm font-medium">
+                <QuestDot color={group.color} />
+                {group.name}
+              </h2>
+              <span
+                className={cn(
+                  "text-xs tabular-nums",
+                  live ? "text-foreground font-medium" : "text-muted-foreground",
+                )}
+              >
+                {live
+                  ? formatStopwatch(group.trackedMinutes + elapsed)
+                  : formatHours(group.trackedMinutes)}
+              </span>
+            </header>
 
-              return (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  quests={quests}
-                  dateKey={dateKey}
-                  nextDateKey={nextDateKey}
-                  asOf={asOf}
-                  questIsImplied
-                  onMoveUp={
-                    previous ? () => place(task.id, previous.id, false) : undefined
-                  }
-                  onMoveDown={next ? () => place(task.id, next.id, true) : undefined}
-                  drag={{
-                    dragging: draggingId === task.id,
-                    dropTarget: dropRowId === task.id && draggingId !== task.id,
-                    onDragStart: (event) => {
-                      event.dataTransfer.effectAllowed = "move";
-                      event.dataTransfer.setData("text/plain", task.id);
-                      setDraggingId(task.id);
-                    },
-                    onDragEnd: clearDrag,
-                    onDragOver: (event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setDropRowId(task.id);
-                      setDropGroupKey(null);
-                    },
-                    onDrop: (event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      dropOnRow(task.id);
-                    },
-                  }}
-                />
-              );
-            })}
-          </ul>
+            <ul className="divide-border/60 divide-y">
+              {group.tasks.map((task, index) => {
+                const previous = group.tasks[index - 1];
+                const next = group.tasks[index + 1];
 
-          <AddTaskForm
-            quests={quests}
-            plannedDate={dateKey}
-            defaultQuestId={group.questId}
-            placeholder={`Add to ${group.name}…`}
-            variant="inline"
-          />
-        </section>
-      ))}
+                return (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    quests={quests}
+                    dateKey={dateKey}
+                    nextDateKey={nextDateKey}
+                    asOf={asOf}
+                    questIsImplied
+                    onMoveUp={
+                      previous ? () => place(task.id, previous.id, false) : undefined
+                    }
+                    onMoveDown={next ? () => place(task.id, next.id, true) : undefined}
+                    drag={{
+                      dragging: draggingId === task.id,
+                      dropTarget: dropRowId === task.id && draggingId !== task.id,
+                      onDragStart: (event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", task.id);
+                        setDraggingId(task.id);
+                      },
+                      onDragEnd: clearDrag,
+                      onDragOver: (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setDropRowId(task.id);
+                        setDropGroupKey(null);
+                      },
+                      onDrop: (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        dropOnRow(task.id);
+                      },
+                    }}
+                  />
+                );
+              })}
+            </ul>
+
+            <AddTaskForm
+              quests={quests}
+              plannedDate={dateKey}
+              defaultQuestId={group.questId}
+              placeholder={`Add to ${group.name}…`}
+              variant="inline"
+            />
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -6,14 +6,18 @@ import { type TimeEntry, tasks, timeEntries } from "@/db/schema";
 import { type ActionResult, fail, failFromZod, ok } from "@/lib/action";
 import { revalidateWorkspace } from "@/lib/revalidate";
 import { requireUser } from "@/lib/session";
-import { MS_PER_MINUTE } from "./domain";
+import { MS_PER_MINUTE, entryMinutes, isRunning } from "./domain";
+import { listEntriesForTask } from "./queries";
 import { dayRange, todayKey } from "@/lib/time";
 import { getTimeZone } from "@/lib/timezone.server";
+import { createTask } from "../tasks/actions";
 import {
   type AdjustEntryInput,
   type LogTimeInput,
+  type StartQuickTimerInput,
   adjustEntrySchema,
   logTimeSchema,
+  startQuickTimerSchema,
   startTimerSchema,
 } from "./validation";
 
@@ -69,6 +73,30 @@ export async function startTimer(taskId: string): Promise<ActionResult<TimeEntry
 
   revalidateWorkspace();
   return ok(entry);
+}
+
+/**
+ * Start a timer on a brand-new task in one step (the timer-first entry point on
+ * Today). Composes the existing task and timer paths rather than re-deriving
+ * quest ownership or sort order: `createTask` already guards both, and
+ * `startTimer` already enforces the one-running-timer rule.
+ */
+export async function startQuickTimer(
+  input: StartQuickTimerInput,
+): Promise<ActionResult<TimeEntry>> {
+  const parsed = startQuickTimerSchema.safeParse(input);
+  if (!parsed.success) return failFromZod(parsed.error);
+
+  const timeZone = await getTimeZone();
+
+  const created = await createTask({
+    title: parsed.data.title,
+    questId: parsed.data.questId,
+    plannedDate: parsed.data.dateKey ?? todayKey(timeZone),
+  });
+  if (!created.ok) return created;
+
+  return startTimer(created.data.id);
 }
 
 export async function stopTimer(): Promise<ActionResult> {
@@ -138,6 +166,39 @@ export async function adjustEntry(
 
   revalidateWorkspace();
   return ok(entry);
+}
+
+/**
+ * A task's individual entries, for the "edit tracked time" dialog. A read, but
+ * exposed as an action so a client component can fetch it on demand rather than
+ * every task row shipping its full entry history up front. Minutes are computed
+ * here (running timers count to now) so the client renders a plain number.
+ */
+export type TaskEntrySummary = {
+  id: string;
+  source: "timer" | "manual";
+  /** ISO. */
+  startedAt: string;
+  running: boolean;
+  minutes: number;
+};
+
+export async function getTaskEntries(
+  taskId: string,
+): Promise<ActionResult<TaskEntrySummary[]>> {
+  const user = await requireUser();
+  const rows = await listEntriesForTask(user.id, taskId);
+  const now = new Date();
+
+  return ok(
+    rows.map((row) => ({
+      id: row.id,
+      source: row.source,
+      startedAt: row.startedAt.toISOString(),
+      running: isRunning(row),
+      minutes: Math.round(entryMinutes(row, now)),
+    })),
+  );
 }
 
 export async function deleteEntry(entryId: string): Promise<ActionResult> {
