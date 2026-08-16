@@ -10,6 +10,7 @@ import {
 } from "@/features/quests/components/quest-picker";
 import { useAction } from "@/hooks/use-action";
 import { createTask } from "../actions";
+import { EstimatePicker } from "./estimate-picker";
 
 /**
  * Inline capture. New tasks default to Admin (PRODUCT_PLAN §4) — mildly
@@ -27,11 +28,14 @@ export function AddTaskForm({
 }) {
   const [title, setTitle] = useState("");
   const [questId, setQuestId] = useState<string | null>(null);
+  const [estimateMinutes, setEstimateMinutes] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { run, pending } = useAction(createTask, {
     onSuccess: () => {
       setTitle("");
+      // Quest and estimate survive the submit: capturing three tasks for the
+      // same quest in a row shouldn't mean re-picking it three times.
       inputRef.current?.focus();
     },
   });
@@ -41,7 +45,7 @@ export function AddTaskForm({
     const trimmed = title.trim();
     if (!trimmed) return;
 
-    run({ title: trimmed, questId, plannedDate });
+    run({ title: trimmed, questId, plannedDate, estimateMinutes });
   }
 
   return (
@@ -58,6 +62,7 @@ export function AddTaskForm({
         aria-label="Task title"
         className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
       />
+      <EstimatePicker value={estimateMinutes} onChange={setEstimateMinutes} />
       <QuestPicker value={questId} quests={quests} onChange={setQuestId} />
       <Button type="submit" size="sm" disabled={pending || !title.trim()}>
         Add

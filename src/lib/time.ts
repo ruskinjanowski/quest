@@ -1,5 +1,6 @@
 import { TZDate } from "@date-fns/tz";
 import {
+  addDays,
   addWeeks,
   endOfDay,
   endOfMonth,
@@ -52,6 +53,21 @@ export function toDateKey(date: Date, timeZone: string): DateKey {
 
 export function todayKey(timeZone: string, now: Date = new Date()): DateKey {
   return toDateKey(now, timeZone);
+}
+
+export function isDateKey(value: string | undefined): value is DateKey {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/**
+ * Moves a date key by whole calendar days in `timeZone`. Calendar arithmetic,
+ * not "+86400000ms": on a DST changeover a day is 23 or 25 hours long, and
+ * "push this task to tomorrow" must still mean tomorrow.
+ */
+export function shiftDateKey(dateKey: DateKey, days: number, timeZone: string): DateKey {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const local = new TZDate(year, month - 1, day, timeZone);
+  return toDateKey(new Date(addDays(local, days).getTime()), timeZone);
 }
 
 /** Midnight-to-midnight instants for a calendar day in `timeZone`. */
@@ -134,6 +150,30 @@ export function formatDayLabel(dateKey: DateKey, timeZone: string): string {
     day: "numeric",
     month: "long",
   }).format(start);
+}
+
+/**
+ * What to call a day in a heading: "Today" / "Tomorrow" / "Yesterday" when the
+ * relative name is the clearer one, otherwise its weekday name.
+ */
+export function dayHeading(
+  dateKey: DateKey,
+  todayDateKey: DateKey,
+  timeZone: string,
+): string {
+  if (dateKey === todayDateKey) return "Today";
+  if (dateKey === shiftDateKey(todayDateKey, 1, timeZone)) return "Tomorrow";
+  if (dateKey === shiftDateKey(todayDateKey, -1, timeZone)) return "Yesterday";
+
+  const { start } = dayRange(dateKey, timeZone);
+  return new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "long" }).format(start);
+}
+
+/** "09:00" in the user's zone — the timeline's voice. */
+export function formatTimeOfDay(minuteOfDay: number): string {
+  const safe = Math.max(0, Math.round(minuteOfDay));
+  const hours = Math.floor(safe / 60) % 24;
+  return `${String(hours).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
 }
 
 export function formatRangeLabel(range: DateRange, timeZone: string): string {

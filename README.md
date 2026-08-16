@@ -54,8 +54,11 @@ Drizzle ORM · Better Auth · Tailwind v4 · shadcn/ui (Radix) · Recharts · Ve
 
 ## Screens
 
-- **Today** — plan and work the day; timers live on the task rows, grouped under
-  quest-coloured headers.
+- **Today** — plan and work the day. "Plan my day" pulls from the backlog and
+  yesterday's leftovers, assigns quests and estimates, and shows the projected
+  quest/admin split before you commit; the day summary tracks plan vs. reality
+  and warns when the list doesn't fit. Timers live on the task rows, grouped
+  under quest-coloured headers, with a read-only timeline of the day beside them.
 - **Quests** — list and detail, with status chips, weekly targets and the
   social/milestone stubs.
 - **Insights** — the payoff: quest vs. admin split, per-quest breakdown, four-week

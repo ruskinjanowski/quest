@@ -69,8 +69,8 @@ components: read with queries, render, pass the rows down.
 
 | PRODUCT_PLAN item | Where it lands |
 |---|---|
-| 1.2 Plan-my-day ritual | New `features/planning/` — a dialog over Today that batches `updateTask` calls. Nothing else changes. |
-| 1.4 Day calendar column | New column in `app/(app)/today/page.tsx` beside `<TaskList />`; needs a start-time on tasks or reads `time_entries` directly. The only layout-breaking item. |
+| 1.2 Plan-my-day ritual | Already built — `features/planning/`, a dialog over Today committing the whole day through one `planDay` action. |
+| 1.4 Day calendar column | Built read-only — `DayTimeline` reads `time_entries` and positions them by clock. Drag-and-drop would need a start-time column on `tasks`. |
 | 1.6 Timeframe selector | Already built — `TimeframeTabs` + `rangeForTimeframe`. |
 | 1.8 Share-of-time context | Already built — `timeContext()` in `features/insights/domain.ts`. Change the denominator there, once. |
 | 2.3 Canonical quest autocomplete | Static list inside `features/quests/components/quest-dialog.tsx`. |

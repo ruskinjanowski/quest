@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { quests, tasks } from "@/db/schema";
 import type { DateKey } from "@/lib/time";
@@ -93,6 +93,32 @@ export async function listBacklogTasks(userId: string): Promise<TaskRow[]> {
       and(eq(tasks.userId, userId), isNull(tasks.plannedDate), eq(tasks.done, false)),
     )
     .orderBy(asc(tasks.sortOrder), desc(tasks.createdAt));
+
+  return withTrackedTime(userId, rows);
+}
+
+/**
+ * Unfinished work from days already gone by. A planner that silently drops
+ * yesterday's leftovers is lying to you, so the planning ritual offers them
+ * back explicitly instead of rolling them over behind your back.
+ */
+export async function listUnfinishedBefore(
+  userId: string,
+  dateKey: DateKey,
+): Promise<TaskRow[]> {
+  const rows = await db
+    .select(taskSelection)
+    .from(tasks)
+    .leftJoin(quests, eq(quests.id, tasks.questId))
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.done, false),
+        isNotNull(tasks.plannedDate),
+        lt(tasks.plannedDate, dateKey),
+      ),
+    )
+    .orderBy(desc(tasks.plannedDate), asc(tasks.sortOrder));
 
   return withTrackedTime(userId, rows);
 }

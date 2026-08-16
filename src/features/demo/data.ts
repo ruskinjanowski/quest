@@ -78,10 +78,19 @@ export const DEMO_ADMIN_TASKS = [
   "Slack catch-up",
 ];
 
-export const DEMO_BACKLOG_TASKS: { title: string; questIndex: number | null }[] = [
-  { title: "Plan next month's Spanish goals", questIndex: 0 },
-  { title: "Sketch the pricing page", questIndex: 1 },
-  { title: "Renew domain", questIndex: null },
+/**
+ * The unplanned pool. Estimates are set here so "Plan my day" has something to
+ * add up the moment it is opened on camera.
+ */
+export const DEMO_BACKLOG_TASKS: {
+  title: string;
+  questIndex: number | null;
+  estimateMinutes: number | null;
+}[] = [
+  { title: "Plan next month's Spanish goals", questIndex: 0, estimateMinutes: 30 },
+  { title: "Sketch the pricing page", questIndex: 1, estimateMinutes: 90 },
+  { title: "Book a physio appointment", questIndex: 2, estimateMinutes: 15 },
+  { title: "Renew domain", questIndex: null, estimateMinutes: 15 },
 ];
 
 /** Deterministic PRNG — same seed, same demo story, every reseed. */

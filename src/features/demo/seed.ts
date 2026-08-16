@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { quests, tasks, timeEntries } from "@/db/schema";
 import { MS_PER_MINUTE } from "@/features/time-tracking/domain";
-import { dayRange, todayKey } from "@/lib/time";
+import { dayRange, shiftDateKey, todayKey } from "@/lib/time";
 import {
   DEMO_BACKLOG_TASKS,
   DEMO_QUESTS,
@@ -47,13 +47,25 @@ export async function seedDemoData(
   const entrySpecs = buildDemoEntries(historyDays);
 
   /** One task per (day, quest, title) so tracked time lands on realistic rows. */
-  const taskKeys = new Map<string, { title: string; questIndex: number | null; dateKey: string }>();
+  const taskKeys = new Map<
+    string,
+    { title: string; questIndex: number | null; dateKey: string; minutes: number }
+  >();
 
   for (const spec of entrySpecs) {
     const dateKey = shiftDateKey(today, -spec.daysAgo, timeZone);
     const key = `${dateKey}|${spec.questIndex ?? "admin"}|${spec.taskTitle}`;
-    if (!taskKeys.has(key)) {
-      taskKeys.set(key, { title: spec.taskTitle, questIndex: spec.questIndex, dateKey });
+    const existing = taskKeys.get(key);
+
+    if (existing) {
+      existing.minutes += spec.minutes;
+    } else {
+      taskKeys.set(key, {
+        title: spec.taskTitle,
+        questIndex: spec.questIndex,
+        dateKey,
+        minutes: spec.minutes,
+      });
     }
   }
 
@@ -64,6 +76,9 @@ export async function seedDemoData(
       questId: task.questIndex === null ? null : insertedQuests[task.questIndex].id,
       title: task.title,
       plannedDate: task.dateKey,
+      // What the day was *planned* to cost, near but never equal to what it
+      // actually took — the gap between the two is what the day summary shows.
+      estimateMinutes: estimateFor(task.minutes),
       // Everything before today is finished; today's list is still in progress.
       done: task.dateKey !== today,
       completedAt: task.dateKey !== today ? new Date() : null,
@@ -76,6 +91,7 @@ export async function seedDemoData(
     questId: task.questIndex === null ? null : insertedQuests[task.questIndex].id,
     title: task.title,
     plannedDate: null,
+    estimateMinutes: task.estimateMinutes,
     done: false,
     sortOrder: plannedTasks.length + index,
   }));
@@ -115,15 +131,12 @@ export async function seedDemoData(
   };
 }
 
-/** Moves a yyyy-MM-dd key by whole days, staying in the user's zone. */
-function shiftDateKey(dateKey: string, days: number, timeZone: string): string {
-  const base = dayRange(dateKey, timeZone).start;
-  const shifted = new Date(base.getTime() + days * 24 * 60 * MS_PER_MINUTE);
-
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(shifted);
+/**
+ * A plausible estimate for a task that actually took `minutes`: rounded to the
+ * quarter hour and nudged low, because plans are optimistic. Nothing in the app
+ * derives estimates from tracked time — this is the seed staging a day that
+ * looks planned rather than reconstructed.
+ */
+function estimateFor(minutes: number): number {
+  return Math.max(15, Math.round((minutes * 0.9) / 15) * 15);
 }

@@ -15,8 +15,8 @@ Copy `.env.example` to `.env.local`.
 |---|---|
 | `DATABASE_URL` | Neon connection string, with `sslmode=require&channel_binding=require`. |
 | `BETTER_AUTH_SECRET` | 32+ chars. `openssl rand -base64 32`. |
-| `BETTER_AUTH_URL` | Base URL of the app (`http://localhost:3000` locally). |
-| `NEXT_PUBLIC_SITE_URL` | Canonical URL, used as the auth fallback. |
+| `BETTER_AUTH_URL` | Base URL of the app (`http://localhost:3000` locally). Ignored on Vercel — see below. |
+| `NEXT_PUBLIC_SITE_URL` | Canonical URL, used as the auth fallback and for metadata. |
 | `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD` | Seeded demo account; shown on the sign-in screen when set. |
 | `ALLOW_DEMO_RESET` | `"true"` enables the Settings → Reset demo data action. |
 
@@ -71,6 +71,18 @@ The same routine backs Settings → *Reset demo data*, scoped to the calling use
 
 Email + password only, on purpose. Email verification, password reset, magic
 links and OAuth are deferred to the 3-month plan.
+
+### Origins on Vercel
+
+Better Auth rejects any POST whose `Origin` header isn't the base URL or in
+`trustedOrigins` — a 403 `INVALID_ORIGIN`, which shows up in the UI as
+*"Invalid origin"* under the sign-in form. Preview deployments get a new
+hostname on every push, so the origin list is built at runtime from
+`VERCEL_PROJECT_PRODUCTION_URL`, `VERCEL_BRANCH_URL` and `VERCEL_URL` (system
+variables Vercel injects for free). When those are present the production
+domain also becomes the base URL, so a stale `BETTER_AUTH_URL` in the Vercel
+project settings can't take the deployed app down. Locally, nothing changes:
+`BETTER_AUTH_URL` is still the base URL.
 
 ## Data model
 

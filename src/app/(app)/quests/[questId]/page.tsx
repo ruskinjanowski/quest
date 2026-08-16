@@ -18,7 +18,7 @@ import { TaskList } from "@/features/tasks/components/task-list";
 import { listTasksForQuest } from "@/features/tasks/queries";
 import { formatHours } from "@/lib/duration";
 import { requireUser } from "@/lib/session";
-import { todayKey, trailingWeeks } from "@/lib/time";
+import { shiftDateKey, todayKey, trailingWeeks } from "@/lib/time";
 import { getTimeZone } from "@/lib/timezone.server";
 import { QUEST_LIFECYCLE_LABELS } from "@/features/quests/labels";
 
@@ -42,6 +42,7 @@ export default async function QuestDetailPage({
     getQuestHistory(user.id, quest.id, weeks),
   ]);
 
+  const dateKey = todayKey(timeZone);
   const thisWeek = history.at(-1)?.minutes ?? 0;
   const peak = Math.max(1, ...history.map((week) => week.minutes));
   const progress = targetProgress(thisWeek, quest.targetHoursWeek);
@@ -133,7 +134,7 @@ export default async function QuestDetailPage({
             <h2 className="text-sm font-medium">Tasks</h2>
             <AddTaskForm
               quests={[questOption]}
-              plannedDate={todayKey(timeZone)}
+              plannedDate={dateKey}
               placeholder="Add a task to this quest…"
             />
             {tasks.length === 0 ? (
@@ -145,7 +146,8 @@ export default async function QuestDetailPage({
               <TaskList
                 tasks={tasks}
                 quests={[questOption]}
-                dateKey={todayKey(timeZone)}
+                dateKey={dateKey}
+                nextDateKey={shiftDateKey(dateKey, 1, timeZone)}
                 grouped={false}
               />
             )}

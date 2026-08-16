@@ -64,11 +64,13 @@ export function TaskList({
   tasks,
   quests,
   dateKey,
+  nextDateKey,
   grouped = true,
 }: {
   tasks: readonly TaskRowData[];
   quests: readonly QuestOption[];
   dateKey?: string;
+  nextDateKey?: string;
   grouped?: boolean;
 }) {
   // Stamped once per server render so running timers tick from a known point.
@@ -83,6 +85,7 @@ export function TaskList({
             task={task}
             quests={quests}
             dateKey={dateKey}
+            nextDateKey={nextDateKey}
             asOf={asOf}
           />
         ))}
@@ -111,6 +114,7 @@ export function TaskList({
                 task={task}
                 quests={quests}
                 dateKey={dateKey}
+                nextDateKey={nextDateKey}
                 asOf={asOf}
               />
             ))}

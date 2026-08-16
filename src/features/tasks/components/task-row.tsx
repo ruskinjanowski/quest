@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, Clock, MoreHorizontal, Trash2 } from "lucide-react";
+import { CalendarPlus, Clock, Inbox, MoreHorizontal, SkipForward, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -17,9 +17,9 @@ import {
   type QuestOption,
 } from "@/features/quests/components/quest-picker";
 import { useAction } from "@/hooks/use-action";
-import { formatDuration } from "@/lib/duration";
 import { cn } from "@/lib/utils";
 import { deleteTask, toggleTask, updateTask } from "../actions";
+import { EstimatePicker } from "./estimate-picker";
 import type { TaskRow as TaskRowData } from "../queries";
 
 /**
@@ -31,6 +31,7 @@ export function TaskRow({
   task,
   quests,
   dateKey,
+  nextDateKey,
   asOf,
   showQuestPicker = true,
 }: {
@@ -38,6 +39,8 @@ export function TaskRow({
   quests: readonly QuestOption[];
   /** Which day a manual log should land on. Defaults to today server-side. */
   dateKey?: string;
+  /** The day after `dateKey` — what "push to tomorrow" means from here. */
+  nextDateKey?: string;
   /** Server render time (ISO), so a running timer can tick without double-counting. */
   asOf: string;
   showQuestPicker?: boolean;
@@ -63,12 +66,14 @@ export function TaskRow({
 
       <div className="min-w-0 flex-1">
         <p className={cn("truncate text-sm", task.done && "line-through")}>{task.title}</p>
-        {task.estimateMinutes !== null && (
-          <p className="text-muted-foreground text-xs">
-            est. {formatDuration(task.estimateMinutes)}
-          </p>
-        )}
       </div>
+
+      <EstimatePicker
+        value={task.estimateMinutes}
+        disabled={update.pending}
+        onChange={(estimateMinutes) => update.run({ id: task.id, estimateMinutes })}
+        className="hidden sm:flex"
+      />
 
       {showQuestPicker && (
         <QuestPicker
@@ -108,12 +113,24 @@ export function TaskRow({
               onSelect={() => update.run({ id: task.id, plannedDate: dateKey ?? null })}
               disabled={!dateKey}
             >
-              <CalendarPlus className="size-4" /> Move to today
+              <CalendarPlus className="size-4" /> Plan for this day
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem onSelect={() => update.run({ id: task.id, plannedDate: null })}>
-              <CalendarPlus className="size-4" /> Move to backlog
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem
+                onSelect={() =>
+                  update.run({ id: task.id, plannedDate: nextDateKey ?? null })
+                }
+                disabled={!nextDateKey}
+              >
+                <SkipForward className="size-4" /> Push to tomorrow
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => update.run({ id: task.id, plannedDate: null })}
+              >
+                <Inbox className="size-4" /> Move to backlog
+              </DropdownMenuItem>
+            </>
           )}
           <DropdownMenuItem
             variant="destructive"

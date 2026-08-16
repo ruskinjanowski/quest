@@ -54,9 +54,15 @@ src/
   lib/                      cross-cutting: auth, session, time, duration, colours
 ```
 
-Features today: `quests`, `tasks`, `time-tracking`, `insights`, `auth`, `demo`,
-`settings`. A feature owns its vocabulary; anything two features need moves to
-`src/lib`.
+Features today: `quests`, `tasks`, `time-tracking`, `planning`, `insights`,
+`auth`, `demo`, `settings`. A feature owns its vocabulary; anything two features
+need moves to `src/lib`.
+
+`planning` and `insights` are the same measurement pointed in opposite
+directions: `planning/domain.ts` projects the quest/admin split from estimates
+*before* the day, `insights/domain.ts` aggregates it from tracked time *after*.
+Keeping them as separate pure modules is what lets the planning dialog
+recompute its projection on every click without a round trip.
 
 ## Conventions that matter
 
@@ -88,6 +94,10 @@ nobody mistakes them for shipped behaviour.
   constraint — see the partial unique index enforcing one running timer per user.
 - **No test framework yet.** The `domain.ts` files are written to be trivially
   testable when one is added; nothing else in the repo depends on that decision.
-- **No calendar column.** PRODUCT_PLAN §3 leaves it open. Today is list-first
-  with quest-coloured grouping, and the layout was chosen so a timeline column
-  can be added on the right without restructuring.
+- **The day timeline is read-only.** PRODUCT_PLAN §3 judged drag-and-drop the
+  most expensive interaction in the category and the least related to the
+  product's claim. `DayTimeline` renders tracked time on a clock; dragging a
+  task onto a slot would need a start-time column on `tasks`, which is where
+  that decision should be re-opened, not in the component.
+- **Tasks have an estimate but no time of day.** That is why the timeline shows
+  what happened rather than what is scheduled.
