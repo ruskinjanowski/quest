@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { formatHours } from "@/lib/duration";
-import { ADMIN_COLOR } from "@/lib/quest-colors";
 
 /**
  * PRODUCT_PLAN 1.1 — the metric, ambient. The server hands over today's split
@@ -47,16 +46,13 @@ export function LiveSplitCounter({
   return (
     <div className="flex items-center gap-3 text-sm tabular-nums" aria-live="off">
       <span className="flex items-center gap-1.5">
-        <span className="bg-primary inline-block size-2 rounded-full" />
+        <span className="bg-quest inline-block size-2 rounded-full" />
         <span className="font-medium">{formatHours(liveQuest)}</span>
         <span className="text-muted-foreground">quest</span>
       </span>
       <span className="text-muted-foreground/50">·</span>
       <span className="flex items-center gap-1.5">
-        <span
-          className="inline-block size-2 rounded-full"
-          style={{ backgroundColor: ADMIN_COLOR }}
-        />
+        <span className="bg-admin inline-block size-2 rounded-full" />
         <span className="font-medium">{formatHours(liveAdmin)}</span>
         <span className="text-muted-foreground">admin</span>
       </span>

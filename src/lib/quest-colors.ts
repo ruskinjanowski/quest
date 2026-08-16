@@ -37,8 +37,12 @@ export const QUEST_COLORS: readonly QuestColor[] = [
 
 export const DEFAULT_QUEST_COLOR: QuestColorKey = "violet";
 
-/** The Admin bucket's swatch — muted on purpose. */
-export const ADMIN_COLOR = "#9aa3af";
+/**
+ * The Admin bucket's swatch — muted on purpose, and a token rather than a hex
+ * so it follows the theme. Quest colours stay literal hex: they are user data,
+ * not theme, and must look the same in light and dark.
+ */
+export const ADMIN_COLOR = "var(--admin)";
 
 const COLOR_BY_KEY = new Map(QUEST_COLORS.map((color) => [color.key, color]));
 

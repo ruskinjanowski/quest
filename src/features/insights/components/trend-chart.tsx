@@ -10,7 +10,6 @@ import {
   YAxis,
 } from "recharts";
 import { formatHours } from "@/lib/duration";
-import { ADMIN_COLOR } from "@/lib/quest-colors";
 import type { TrendPoint } from "../domain";
 
 /**
@@ -55,8 +54,8 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
               name === "quest" ? "Quests" : "Admin",
             ]}
           />
-          <Bar dataKey="quest" stackId="time" fill="var(--primary)" radius={[0, 0, 0, 0]} />
-          <Bar dataKey="admin" stackId="time" fill={ADMIN_COLOR} radius={[4, 4, 0, 0]} />
+          <Bar dataKey="quest" stackId="time" fill="var(--quest)" radius={[0, 0, 0, 0]} />
+          <Bar dataKey="admin" stackId="time" fill="var(--admin)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

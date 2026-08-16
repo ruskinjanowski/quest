@@ -23,6 +23,15 @@ import { EstimatePicker } from "./estimate-picker";
 import type { TaskRow as TaskRowData } from "../queries";
 
 /**
+ * Metadata that is either redundant or empty stays out of the way until the row
+ * is hovered or focused. Opacity rather than `hidden` so the row never reflows
+ * under the cursor, and `aria-expanded` keeps a pill visible while its menu is
+ * open. Keyboard users get the same reveal via `group-focus-within`.
+ */
+const REVEAL_ON_HOVER =
+  "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 aria-expanded:opacity-100";
+
+/**
  * One task, everywhere. Timer, quest assignment and completion all sit on the
  * row itself — the plan's "linking must be frictionless" requirement means no
  * detail screen stands between a task and its quest.
@@ -33,7 +42,7 @@ export function TaskRow({
   dateKey,
   nextDateKey,
   asOf,
-  showQuestPicker = true,
+  questIsImplied = false,
 }: {
   task: TaskRowData;
   quests: readonly QuestOption[];
@@ -43,7 +52,12 @@ export function TaskRow({
   nextDateKey?: string;
   /** Server render time (ISO), so a running timer can tick without double-counting. */
   asOf: string;
-  showQuestPicker?: boolean;
+  /**
+   * True when the surrounding context already states the quest — a coloured
+   * group header, or a quest's own detail page. The picker still works, it just
+   * stops repeating what the header said on every row.
+   */
+  questIsImplied?: boolean;
 }) {
   const [logOpen, setLogOpen] = useState(false);
   const toggle = useAction(toggleTask);
@@ -72,17 +86,21 @@ export function TaskRow({
         value={task.estimateMinutes}
         disabled={update.pending}
         onChange={(estimateMinutes) => update.run({ id: task.id, estimateMinutes })}
-        className="hidden sm:flex"
+        className={cn(
+          // A set estimate is information, so it stays — but as plain text
+          // rather than another bordered control.
+          "hidden border-transparent sm:flex",
+          task.estimateMinutes === null && REVEAL_ON_HOVER,
+        )}
       />
 
-      {showQuestPicker && (
-        <QuestPicker
-          value={task.questId}
-          quests={quests}
-          disabled={update.pending}
-          onChange={(questId) => update.run({ id: task.id, questId })}
-        />
-      )}
+      <QuestPicker
+        value={task.questId}
+        quests={quests}
+        disabled={update.pending}
+        onChange={(questId) => update.run({ id: task.id, questId })}
+        className={cn(questIsImplied && REVEAL_ON_HOVER)}
+      />
 
       <TimerButton
         taskId={task.id}

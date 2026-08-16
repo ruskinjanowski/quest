@@ -1,5 +1,4 @@
 import { formatHours, formatPercent } from "@/lib/duration";
-import { ADMIN_COLOR } from "@/lib/quest-colors";
 import type { SplitSummary, TimeContext } from "../domain";
 import { HOURS_IN_WEEK } from "../domain";
 
@@ -45,16 +44,10 @@ export function SplitHeadline({
           role="img"
           aria-label={`${formatPercent(summary.questShare)} of tracked time on quests`}
         >
+          <div className="bg-quest h-full" style={{ width: `${questPercent}%` }} />
           <div
-            className="bg-primary h-full"
-            style={{ width: `${questPercent}%` }}
-          />
-          <div
-            className="h-full"
-            style={{
-              width: `${100 - questPercent}%`,
-              backgroundColor: ADMIN_COLOR,
-            }}
+            className="bg-admin h-full"
+            style={{ width: `${100 - questPercent}%` }}
           />
         </div>
 

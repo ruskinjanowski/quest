@@ -1,4 +1,3 @@
-import { ADMIN_COLOR } from "@/lib/quest-colors";
 import { cn } from "@/lib/utils";
 import type { DayProjection } from "../domain";
 
@@ -27,12 +26,12 @@ export function SplitBar({
       }
     >
       <div
-        className="bg-primary h-full transition-[width]"
+        className="bg-quest h-full transition-[width]"
         style={{ width: `${questShare * 100}%` }}
       />
       <div
-        className="h-full transition-[width]"
-        style={{ width: `${adminShare * 100}%`, backgroundColor: ADMIN_COLOR }}
+        className="bg-admin h-full transition-[width]"
+        style={{ width: `${adminShare * 100}%` }}
       />
     </div>
   );

@@ -76,6 +76,12 @@ export function TaskList({
   // Stamped once per server render so running timers tick from a known point.
   const asOf = new Date().toISOString();
 
+  // Grouped lists carry a quest-coloured header, and a single-quest list is
+  // already on that quest's page — in both cases repeating the quest on every
+  // row is noise. An ungrouped, multi-quest list (the backlog) is the one place
+  // the picker earns its space.
+  const questIsImplied = grouped || quests.length <= 1;
+
   if (!grouped) {
     return (
       <ul className="divide-border/60 divide-y">
@@ -87,6 +93,7 @@ export function TaskList({
             dateKey={dateKey}
             nextDateKey={nextDateKey}
             asOf={asOf}
+            questIsImplied={questIsImplied}
           />
         ))}
       </ul>
@@ -116,6 +123,7 @@ export function TaskList({
                 dateKey={dateKey}
                 nextDateKey={nextDateKey}
                 asOf={asOf}
+                questIsImplied={questIsImplied}
               />
             ))}
           </ul>

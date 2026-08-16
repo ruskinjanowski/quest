@@ -67,7 +67,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   const trackedMinutes = tasks.reduce((sum, task) => sum + task.trackedMinutes, 0);
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-4xl">
       <PageHeader
         title={heading}
         description={formatDayLabel(dateKey, timeZone)}
@@ -90,63 +90,61 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_15rem]">
-        <div className="space-y-6">
-          {tasks.length > 0 && (
-            <DaySummary tasks={tasks} trackedMinutes={trackedMinutes} />
-          )}
+      <div className="space-y-6">
+        {tasks.length > 0 && (
+          <DaySummary tasks={tasks} trackedMinutes={trackedMinutes} />
+        )}
 
-          <AddTaskForm quests={questOptions} plannedDate={dateKey} />
+        <AddTaskForm quests={questOptions} plannedDate={dateKey} />
 
-          {tasks.length === 0 ? (
-            <EmptyState
-              title="Nothing planned yet"
-              description={
-                quests.length === 0
-                  ? "Start with a quest — the thing you actually want to move forward — then give it a task."
-                  : "Plan the day from your backlog, or add a task above and link it to the quest it advances."
-              }
-              action={
-                quests.length === 0 ? (
-                  <Button asChild size="sm">
-                    <Link href="/quests">Create your first quest</Link>
-                  </Button>
-                ) : null
-              }
-            />
-          ) : (
-            <TaskList
-              tasks={tasks}
-              quests={questOptions}
-              dateKey={dateKey}
-              nextDateKey={nextKey}
-            />
-          )}
+        {tasks.length === 0 ? (
+          <EmptyState
+            title="Nothing planned yet"
+            description={
+              quests.length === 0
+                ? "Start with a quest — the thing you actually want to move forward — then give it a task."
+                : "Plan the day from your backlog, or add a task above and link it to the quest it advances."
+            }
+            action={
+              quests.length === 0 ? (
+                <Button asChild size="sm">
+                  <Link href="/quests">Create your first quest</Link>
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <TaskList
+            tasks={tasks}
+            quests={questOptions}
+            dateKey={dateKey}
+            nextDateKey={nextKey}
+          />
+        )}
 
-          {backlog.length > 0 && (
-            <>
-              <Separator />
-              <section>
-                <h2 className="text-muted-foreground mb-1 px-2 text-xs font-medium tracking-wide uppercase">
-                  Backlog
-                </h2>
-                <TaskList
-                  tasks={backlog}
-                  quests={questOptions}
-                  dateKey={dateKey}
-                  nextDateKey={nextKey}
-                  grouped={false}
-                />
-              </section>
-            </>
-          )}
-        </div>
+        {backlog.length > 0 && (
+          <>
+            <Separator />
+            <section>
+              <h2 className="text-muted-foreground mb-1 px-2 text-xs font-medium tracking-wide uppercase">
+                Backlog
+              </h2>
+              <TaskList
+                tasks={backlog}
+                quests={questOptions}
+                dateKey={dateKey}
+                nextDateKey={nextKey}
+                grouped={false}
+              />
+            </section>
+          </>
+        )}
 
-        <Card className="hidden gap-3 py-4 lg:block">
-          <CardHeader className="px-4">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium">The day</CardTitle>
           </CardHeader>
-          <CardContent className="px-4">
+          <CardContent>
             <DayTimeline blocks={blocks} />
           </CardContent>
         </Card>
