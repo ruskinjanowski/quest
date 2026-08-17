@@ -4,10 +4,20 @@ import { type NewTask, quests, tasks } from "@/db/schema";
 import { shiftDateKey, todayKey } from "@/lib/time";
 import {
   DEMO_BACKLOG_TASKS,
+  DEMO_LEFTOVER_TASKS,
   DEMO_QUESTS,
   DEMO_UPCOMING_TASKS,
   buildDemoHistory,
 } from "./data";
+
+/** How long ago the finished quest was finished — "Achieved" wants a past. */
+const COMPLETED_QUEST_DAYS_AGO = 24;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function daysAgoInstant(days: number, now: number): Date {
+  return new Date(now - days * DAY_MS);
+}
 
 /**
  * Replaces one user's data with the demo dataset.
@@ -21,6 +31,7 @@ export async function seedDemoData(
   options: { timeZone?: string; historyDays?: number } = {},
 ): Promise<{ quests: number; tasks: number }> {
   const { timeZone = "UTC", historyDays = 28 } = options;
+  const now = Date.now();
 
   // Order matters only for clarity — the FK cascades would handle it anyway.
   await db.delete(tasks).where(eq(tasks.userId, userId));
@@ -38,7 +49,10 @@ export async function seedDemoData(
         health: quest.health,
         targetHoursWeek: quest.targetHoursWeek,
         sortOrder: index,
-        completedAt: quest.lifecycle === "completed" ? new Date() : null,
+        completedAt:
+          quest.lifecycle === "completed"
+            ? daysAgoInstant(COMPLETED_QUEST_DAYS_AGO, now)
+            : null,
       })),
     )
     .returning({ id: quests.id });
@@ -58,30 +72,39 @@ export async function seedDemoData(
     estimateMinutes: task.estimateMinutes,
     actualMinutes: task.actualMinutes,
     done: true,
-    completedAt: new Date(),
+    // Ticked off on the day it was planned for, not all at once at seed time.
+    completedAt: daysAgoInstant(task.daysAgo, now),
     sortOrder: sortOrder++,
   }));
 
   /**
-   * Today and the next two days, unfinished: the board has to open on a plan
-   * you can work, not on a finished day. One task is already ticked off so the
-   * first column's progress bar and split have something to say.
+   * Today and the next four days. Today opens mid-morning — a couple of things
+   * already ticked off — because the board has to show a plan being worked, not
+   * a blank slate or a finished day.
    */
-  const upcoming: NewTask[] = DEMO_UPCOMING_TASKS.map((task, index) => {
-    const done = task.daysAhead === 0 && index === 2;
+  const upcoming: NewTask[] = DEMO_UPCOMING_TASKS.map((task) => ({
+    userId,
+    questId: questId(task.questIndex),
+    title: task.title,
+    notes: task.notes ?? null,
+    plannedDate: shiftDateKey(today, task.daysAhead, timeZone),
+    estimateMinutes: task.estimateMinutes,
+    actualMinutes: task.done ? (task.actualMinutes ?? task.estimateMinutes) : null,
+    done: task.done ?? false,
+    completedAt: task.done ? new Date(now) : null,
+    sortOrder: sortOrder++,
+  }));
 
-    return {
-      userId,
-      questId: questId(task.questIndex),
-      title: task.title,
-      plannedDate: shiftDateKey(today, task.daysAhead, timeZone),
-      estimateMinutes: task.estimateMinutes,
-      actualMinutes: done ? task.estimateMinutes + 10 : null,
-      done,
-      completedAt: done ? new Date() : null,
-      sortOrder: sortOrder++,
-    };
-  });
+  /** Unfinished days behind us, so "left over from earlier" is demonstrable. */
+  const leftovers: NewTask[] = DEMO_LEFTOVER_TASKS.map((task) => ({
+    userId,
+    questId: questId(task.questIndex),
+    title: task.title,
+    plannedDate: shiftDateKey(today, -task.daysAgo, timeZone),
+    estimateMinutes: task.estimateMinutes,
+    done: false,
+    sortOrder: sortOrder++,
+  }));
 
   const backlog: NewTask[] = DEMO_BACKLOG_TASKS.map((task) => ({
     userId,
@@ -96,7 +119,7 @@ export async function seedDemoData(
 
   const inserted = await db
     .insert(tasks)
-    .values([...history, ...upcoming, ...backlog])
+    .values([...history, ...leftovers, ...upcoming, ...backlog])
     .returning({ id: tasks.id });
 
   return { quests: insertedQuests.length, tasks: inserted.length };

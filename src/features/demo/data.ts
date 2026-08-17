@@ -69,7 +69,7 @@ export const DEMO_QUESTS: DemoQuest[] = [
   },
   {
     name: "Read 12 books",
-    description: "Finished in July — twelve down, and the habit stuck.",
+    description: "Twelve down over the year — and the habit stuck.",
     color: "amber",
     targetHoursWeek: null,
     health: "achieved",
@@ -110,23 +110,117 @@ export const DEMO_BACKLOG_TASKS: {
   { title: "Rewrite the whole thing in Rust", questIndex: 1, estimateMinutes: null, horizon: "never" },
 ];
 
-/** Tasks waiting on today and the next two days — the board needs a shape. */
-export const DEMO_UPCOMING_TASKS: {
+export type DemoUpcomingTask = {
   /** Days from today. 0 = today. */
   daysAhead: number;
   questIndex: number | null;
   title: string;
   estimateMinutes: number;
-}[] = [
-  { daysAhead: 0, questIndex: 1, title: "Build the onboarding flow", estimateMinutes: 120 },
-  { daysAhead: 0, questIndex: 0, title: "Conversation exchange", estimateMinutes: 45 },
-  { daysAhead: 0, questIndex: null, title: "Inbox triage", estimateMinutes: 30 },
+  /** Already ticked off — today opens mid-morning, not on a blank slate. */
+  done?: boolean;
+  /** `ACTUAL`, only meaningful once `done`. Null falls back to the estimate. */
+  actualMinutes?: number;
+  notes?: string;
+};
+
+/**
+ * The planned week: today plus the next four days.
+ *
+ * Today is deliberately *in progress* rather than untouched — two things
+ * finished, the rest still to come — so the day header's split, the progress
+ * bar and the projected timeline all have something to say the moment the board
+ * opens. The days after it thin out, which is what a real plan looks like.
+ *
+ * Today's estimates total under six hours so the projection lands inside the
+ * timeline's 09:00–21:00 rail instead of running off the bottom of it.
+ */
+export const DEMO_UPCOMING_TASKS: DemoUpcomingTask[] = [
+  // Today — the two finished ones lead, matching the projected order.
+  {
+    daysAhead: 0,
+    questIndex: null,
+    title: "Inbox triage",
+    estimateMinutes: 30,
+    done: true,
+    actualMinutes: 25,
+  },
+  {
+    daysAhead: 0,
+    questIndex: 1,
+    title: "Build the onboarding flow",
+    estimateMinutes: 90,
+    done: true,
+    actualMinutes: 115,
+    notes: "Empty state, first-run checklist, and the welcome email copy.",
+  },
+  {
+    daysAhead: 0,
+    questIndex: 0,
+    title: "Conversation exchange",
+    estimateMinutes: 45,
+    notes: "30 minutes with María, then write down whatever I fumbled.",
+  },
+  { daysAhead: 0, questIndex: null, title: "Weekly team sync", estimateMinutes: 45 },
   { daysAhead: 0, questIndex: 2, title: "Gym — push day", estimateMinutes: 60 },
-  { daysAhead: 1, questIndex: 1, title: "Fix the billing bug", estimateMinutes: 90 },
-  { daysAhead: 1, questIndex: null, title: "Weekly team sync", estimateMinutes: 60 },
-  { daysAhead: 1, questIndex: 0, title: "Vocabulary review", estimateMinutes: 30 },
-  { daysAhead: 2, questIndex: 1, title: "Write the launch post", estimateMinutes: 90 },
-  { daysAhead: 2, questIndex: 2, title: "Long run", estimateMinutes: 75 },
+  {
+    daysAhead: 0,
+    questIndex: 1,
+    title: "Fix the billing bug",
+    estimateMinutes: 60,
+    notes: "Proration is wrong when a plan changes mid-cycle.",
+  },
+
+  // Tomorrow.
+  {
+    daysAhead: 1,
+    questIndex: 1,
+    title: "Write the launch post",
+    estimateMinutes: 90,
+    notes: "Lead with the quest-hours number, not the feature list.",
+  },
+  { daysAhead: 1, questIndex: 0, title: "Duolingo session", estimateMinutes: 20 },
+  { daysAhead: 1, questIndex: null, title: "Recruiter calls", estimateMinutes: 45 },
+  { daysAhead: 1, questIndex: 2, title: "Long run", estimateMinutes: 75 },
+
+  // Day after.
+  { daysAhead: 2, questIndex: 1, title: "Refactor the data layer", estimateMinutes: 120 },
+  { daysAhead: 2, questIndex: 2, title: "Gym — pull day", estimateMinutes: 60 },
+  { daysAhead: 2, questIndex: null, title: "Expense report", estimateMinutes: 30 },
+  {
+    daysAhead: 2,
+    questIndex: 0,
+    title: "Watch an episode with subtitles",
+    estimateMinutes: 45,
+  },
+
+  // Thinning out — a plan you believe, not a plan you filled in.
+  { daysAhead: 3, questIndex: 1, title: "Polish the empty states", estimateMinutes: 90 },
+  { daysAhead: 3, questIndex: 0, title: "Vocabulary review", estimateMinutes: 30 },
+  { daysAhead: 3, questIndex: null, title: "Invoicing", estimateMinutes: 45 },
+  { daysAhead: 4, questIndex: 1, title: "Ship the beta to five users", estimateMinutes: 60 },
+  { daysAhead: 4, questIndex: 2, title: "Mobility session", estimateMinutes: 30 },
+];
+
+/**
+ * Unfinished work from days already gone — the "left over from earlier" row.
+ *
+ * Two of them, on purpose: enough to demo pulling yesterday's leftovers onto
+ * today, few enough that the board doesn't open on a pile of guilt.
+ */
+export const DEMO_LEFTOVER_TASKS: {
+  /** Days before today. 1 = yesterday. */
+  daysAgo: number;
+  questIndex: number | null;
+  title: string;
+  estimateMinutes: number;
+}[] = [
+  {
+    daysAgo: 1,
+    questIndex: 1,
+    title: "Reply to the beta feedback thread",
+    estimateMinutes: 30,
+  },
+  { daysAgo: 2, questIndex: null, title: "Slack catch-up", estimateMinutes: 20 },
 ];
 
 /** Deterministic PRNG — same seed, same demo story, every reseed. */
