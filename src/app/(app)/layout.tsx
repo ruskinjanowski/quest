@@ -19,21 +19,26 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           stays reachable, and the border runs the full height of what you see.
           `self-start` keeps the flex row from stretching it back out, which
           would leave it nothing to stick within. */}
-      <aside className="bg-muted/30 flex shrink-0 flex-col gap-6 border-b p-3 lg:sticky lg:top-0 lg:h-dvh lg:w-56 lg:self-start lg:border-r lg:border-b-0 lg:p-4">
+      <aside className="bg-muted/30 flex shrink-0 items-center gap-3 border-b p-3 lg:sticky lg:top-0 lg:h-dvh lg:w-56 lg:flex-col lg:items-stretch lg:gap-6 lg:self-start lg:border-r lg:border-b-0 lg:p-4">
         <Link href="/home" className="hidden px-2 text-lg font-semibold lg:block">
           Quest
         </Link>
-        <SidebarNav />
+
+        {/* `flex-1` on the nav's wrapper is what pushes the account row to the
+            foot of the rail on desktop, and keeps it at the right-hand end of
+            the bar on phones. */}
+        <div className="min-w-0 flex-1">
+          <SidebarNav />
+        </div>
+
+        <UserMenu name={user.name} email={user.email} />
       </aside>
 
+      {/* There is no top bar: it only ever carried the avatar, which now sits
+          in the rail. The header used to carry a live quest/admin counter
+          beside a running timer; with the timer gone that number belongs where
+          it is now — under the first day column, and on Home. */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* The header used to carry a live quest/admin counter beside a running
-            timer. With the timer gone the number belongs where it is now: under
-            the first day column, and on Home. */}
-        <header className="bg-background/80 sticky top-0 z-10 flex h-14 items-center justify-end gap-4 border-b px-4 backdrop-blur lg:px-8">
-          <UserMenu name={user.name} email={user.email} />
-        </header>
-
         <main className="flex-1 px-4 py-6 lg:px-8 lg:py-10">{children}</main>
       </div>
     </div>

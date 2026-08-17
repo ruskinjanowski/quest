@@ -33,7 +33,10 @@ export function SidebarNav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-xs font-medium transition-colors lg:justify-start lg:gap-2.5 lg:px-3 lg:text-sm",
+              // Stacked on phones: the account row now shares the bar, and a
+              // side-by-side icon and label no longer leave enough width for
+              // "Backlog" to render unclipped.
+              "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-medium transition-colors lg:flex-row lg:justify-start lg:gap-2.5 lg:px-3 lg:py-2 lg:text-sm",
               active
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
