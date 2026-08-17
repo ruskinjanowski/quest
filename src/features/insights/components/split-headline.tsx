@@ -58,7 +58,7 @@ export function SplitHeadline({
       </div>
 
       <p className="text-muted-foreground text-sm text-balance">
-        {formatPercent(context.shareOfTracked)} of the time you tracked went to your
+        {formatPercent(context.shareOfTracked)} of the work you finished went to your
         quests — that&apos;s {formatPercent(context.shareOfWeek, 1)} of a{" "}
         {HOURS_IN_WEEK}-hour week.
       </p>

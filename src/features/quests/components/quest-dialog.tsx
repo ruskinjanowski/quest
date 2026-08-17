@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
 import { QUEST_COLORS, type QuestColorKey } from "@/lib/quest-colors";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ import { createQuest, updateQuest } from "../actions";
 type QuestDraft = {
   id: string;
   name: string;
+  description: string | null;
   color: string;
   targetHoursWeek: number | null;
 };
@@ -41,6 +43,7 @@ export function QuestDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(quest?.name ?? "");
+  const [description, setDescription] = useState(quest?.description ?? "");
   const [color, setColor] = useState<QuestColorKey | undefined>(
     quest?.color as QuestColorKey | undefined,
   );
@@ -51,6 +54,7 @@ export function QuestDialog({
     setOpen(false);
     if (!isEdit) {
       setName("");
+      setDescription("");
       setColor(undefined);
       setTarget("");
     }
@@ -68,9 +72,9 @@ export function QuestDialog({
     const targetHoursWeek = target.trim() === "" ? null : Number(target);
 
     if (quest) {
-      update.run({ id: quest.id, name: trimmed, color, targetHoursWeek });
+      update.run({ id: quest.id, name: trimmed, description, color, targetHoursWeek });
     } else {
-      create.run({ name: trimmed, color, targetHoursWeek });
+      create.run({ name: trimmed, description, color, targetHoursWeek });
     }
   }
 
@@ -103,6 +107,18 @@ export function QuestDialog({
                 placeholder="Learn Spanish"
                 autoFocus
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quest-description">Why it matters (optional)</Label>
+              <Textarea
+                id="quest-description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="So I can hold a conversation on the trip in March."
+                rows={2}
+                className="resize-none"
               />
             </div>
 

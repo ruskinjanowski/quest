@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CalendarDays, Inbox, Settings, Swords } from "lucide-react";
+import { CalendarDays, Home, Inbox, Settings, Swords } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
  * spent on Insights and the quest colouring, not here.
  */
 const NAV_ITEMS = [
+  { href: "/home", label: "Home", icon: Home },
   { href: "/today", label: "Today", icon: CalendarDays },
-  { href: "/backlog", label: "Backlog", icon: Inbox },
   { href: "/quests", label: "Quests", icon: Swords },
-  { href: "/insights", label: "Insights", icon: BarChart3 },
+  { href: "/backlog", label: "Backlog", icon: Inbox },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

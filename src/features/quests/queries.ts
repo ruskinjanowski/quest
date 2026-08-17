@@ -1,13 +1,13 @@
 import "server-only";
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { type Quest, quests, tasks } from "@/db/schema";
-import type { DateRange } from "@/lib/time";
-import { entryMinutesInRange } from "../time-tracking/domain";
-import { listEntriesInRange } from "../time-tracking/queries";
+import { costOf } from "@/features/tasks/domain";
+import type { DateKey } from "@/lib/time";
 
 export type QuestWithStats = Quest & {
-  trackedMinutes: number;
+  /** Minutes banked on this quest in the window the caller asked about. */
+  bankedMinutes: number;
   openTaskCount: number;
 };
 
@@ -43,18 +43,35 @@ export async function getQuest(userId: string, questId: string): Promise<Quest |
 
 /**
  * Quests decorated with the two numbers the list and detail pages show.
- * Tracked minutes are aggregated in TypeScript from raw entries rather than in
- * SQL: it reuses the same pure `entryMinutesInRange` the charts use, so a
- * running timer is counted identically everywhere.
+ *
+ * Minutes are aggregated in TypeScript from raw task rows rather than in SQL:
+ * it reuses the same pure `costOf` the charts use, so `ACTUAL` falling back to
+ * `PLANNED` behaves identically everywhere.
  */
 export async function listQuestsWithStats(
   userId: string,
-  range: DateRange,
+  range: { fromKey: DateKey; toKey: DateKey },
   options: { lifecycle?: Quest["lifecycle"][] } = {},
 ): Promise<QuestWithStats[]> {
-  const [questRows, entries, openTaskRows] = await Promise.all([
+  const [questRows, doneRows, openTaskRows] = await Promise.all([
     listQuests(userId, options),
-    listEntriesInRange(userId, range),
+    db
+      .select({
+        questId: tasks.questId,
+        estimateMinutes: tasks.estimateMinutes,
+        actualMinutes: tasks.actualMinutes,
+      })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.userId, userId),
+          eq(tasks.done, true),
+          isNotNull(tasks.questId),
+          isNotNull(tasks.plannedDate),
+          gte(tasks.plannedDate, range.fromKey),
+          lte(tasks.plannedDate, range.toKey),
+        ),
+      ),
     db
       .select({ questId: tasks.questId, openTasks: count() })
       .from(tasks)
@@ -62,13 +79,12 @@ export async function listQuestsWithStats(
       .groupBy(tasks.questId),
   ]);
 
-  const now = new Date();
   const minutesByQuest = new Map<string, number>();
-  for (const entry of entries) {
-    if (!entry.questId) continue;
+  for (const row of doneRows) {
+    if (!row.questId) continue;
     minutesByQuest.set(
-      entry.questId,
-      (minutesByQuest.get(entry.questId) ?? 0) + entryMinutesInRange(entry, range, now),
+      row.questId,
+      (minutesByQuest.get(row.questId) ?? 0) + costOf({ ...row, questId: row.questId, done: true }),
     );
   }
 
@@ -80,34 +96,49 @@ export async function listQuestsWithStats(
 
   return questRows.map((quest) => ({
     ...quest,
-    trackedMinutes: minutesByQuest.get(quest.id) ?? 0,
+    bankedMinutes: minutesByQuest.get(quest.id) ?? 0,
     openTaskCount: openByQuest.get(quest.id) ?? 0,
   }));
 }
 
-/** Per-week hours for one quest — the "simple history" on the detail page. */
+/** Per-week minutes for one quest — the "simple history" on the detail page. */
 export async function getQuestHistory(
   userId: string,
   questId: string,
-  weeks: readonly (DateRange & { label: string })[],
+  weeks: readonly { label: string; dateKeys: readonly DateKey[] }[],
 ): Promise<{ label: string; minutes: number }[]> {
   if (weeks.length === 0) return [];
 
-  const entries = await listEntriesInRange(userId, {
-    start: weeks[0].start,
-    end: weeks[weeks.length - 1].end,
+  const first = weeks[0].dateKeys[0];
+  const last = weeks[weeks.length - 1].dateKeys.at(-1)!;
+
+  const rows = await db
+    .select({
+      plannedDate: tasks.plannedDate,
+      estimateMinutes: tasks.estimateMinutes,
+      actualMinutes: tasks.actualMinutes,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.questId, questId),
+        eq(tasks.done, true),
+        isNotNull(tasks.plannedDate),
+        gte(tasks.plannedDate, first),
+        lte(tasks.plannedDate, last),
+      ),
+    );
+
+  return weeks.map((week) => {
+    const days = new Set<string>(week.dateKeys);
+    return {
+      label: week.label,
+      minutes: rows
+        .filter((row) => row.plannedDate !== null && days.has(row.plannedDate))
+        .reduce((sum, row) => sum + costOf({ ...row, questId, done: true }), 0),
+    };
   });
-
-  const questEntries = entries.filter((entry) => entry.questId === questId);
-  const now = new Date();
-
-  return weeks.map((week) => ({
-    label: week.label,
-    minutes: questEntries.reduce(
-      (sum, entry) => sum + entryMinutesInRange(entry, week, now),
-      0,
-    ),
-  }));
 }
 
 /** Used to pick a distinct colour for the next quest. */

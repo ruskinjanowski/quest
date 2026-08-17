@@ -15,6 +15,20 @@
       "when": 1786895991496,
       "tag": "0001_petite_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786953740480,
+      "tag": "0002_red_black_tom",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786953749838,
+      "tag": "0003_overconfident_secret_warriors",
+      "breakpoints": true
     }
   ]
 }

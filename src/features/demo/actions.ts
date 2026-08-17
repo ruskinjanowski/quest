@@ -14,7 +14,7 @@ import { seedDemoData } from "./seed";
  * It only ever reseeds the *calling* user's data, and the whole feature can be
  * switched off with `ALLOW_DEMO_RESET`.
  */
-export async function resetDemoData(): Promise<ActionResult<{ entries: number }>> {
+export async function resetDemoData(): Promise<ActionResult<{ tasks: number }>> {
   if (process.env.ALLOW_DEMO_RESET !== "true") {
     return fail("Demo reset is disabled on this deployment.");
   }
@@ -25,5 +25,5 @@ export async function resetDemoData(): Promise<ActionResult<{ entries: number }>
   const result = await seedDemoData(user.id, { timeZone });
 
   revalidateWorkspace();
-  return ok({ entries: result.entries });
+  return ok({ tasks: result.tasks });
 }

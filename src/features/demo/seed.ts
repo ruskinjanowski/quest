@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { quests, tasks, timeEntries } from "@/db/schema";
-import { MS_PER_MINUTE } from "@/features/time-tracking/domain";
-import { dayRange, shiftDateKey, todayKey } from "@/lib/time";
+import { type NewTask, quests, tasks } from "@/db/schema";
+import { shiftDateKey, todayKey } from "@/lib/time";
 import {
   DEMO_BACKLOG_TASKS,
   DEMO_QUESTS,
-  buildDemoEntries,
+  DEMO_UPCOMING_TASKS,
+  buildDemoHistory,
 } from "./data";
 
 /**
@@ -19,11 +19,10 @@ import {
 export async function seedDemoData(
   userId: string,
   options: { timeZone?: string; historyDays?: number } = {},
-): Promise<{ quests: number; tasks: number; entries: number }> {
+): Promise<{ quests: number; tasks: number }> {
   const { timeZone = "UTC", historyDays = 28 } = options;
 
   // Order matters only for clarity — the FK cascades would handle it anyway.
-  await db.delete(timeEntries).where(eq(timeEntries.userId, userId));
   await db.delete(tasks).where(eq(tasks.userId, userId));
   await db.delete(quests).where(eq(quests.userId, userId));
 
@@ -33,6 +32,7 @@ export async function seedDemoData(
       DEMO_QUESTS.map((quest, index) => ({
         userId,
         name: quest.name,
+        description: quest.description,
         color: quest.color,
         lifecycle: quest.lifecycle,
         health: quest.health,
@@ -43,100 +43,61 @@ export async function seedDemoData(
     )
     .returning({ id: quests.id });
 
+  const questId = (index: number | null) =>
+    index === null ? null : insertedQuests[index].id;
+
   const today = todayKey(timeZone);
-  const entrySpecs = buildDemoEntries(historyDays);
+  let sortOrder = 0;
 
-  /** One task per (day, quest, title) so tracked time lands on realistic rows. */
-  const taskKeys = new Map<
-    string,
-    { title: string; questIndex: number | null; dateKey: string; minutes: number }
-  >();
-
-  for (const spec of entrySpecs) {
-    const dateKey = shiftDateKey(today, -spec.daysAgo, timeZone);
-    const key = `${dateKey}|${spec.questIndex ?? "admin"}|${spec.taskTitle}`;
-    const existing = taskKeys.get(key);
-
-    if (existing) {
-      existing.minutes += spec.minutes;
-    } else {
-      taskKeys.set(key, {
-        title: spec.taskTitle,
-        questIndex: spec.questIndex,
-        dateKey,
-        minutes: spec.minutes,
-      });
-    }
-  }
-
-  const plannedTasks = [...taskKeys.entries()].map(([key, task], index) => ({
-    key,
-    values: {
-      userId,
-      questId: task.questIndex === null ? null : insertedQuests[task.questIndex].id,
-      title: task.title,
-      plannedDate: task.dateKey,
-      // What the day was *planned* to cost, near but never equal to what it
-      // actually took — the gap between the two is what the day summary shows.
-      estimateMinutes: estimateFor(task.minutes),
-      // Everything before today is finished; today's list is still in progress.
-      done: task.dateKey !== today,
-      completedAt: task.dateKey !== today ? new Date() : null,
-      sortOrder: index,
-    },
-  }));
-
-  const backlogTasks = DEMO_BACKLOG_TASKS.map((task, index) => ({
+  /** Four weeks of finished days, each task carrying both numbers. */
+  const history: NewTask[] = buildDemoHistory(historyDays).map((task) => ({
     userId,
-    questId: task.questIndex === null ? null : insertedQuests[task.questIndex].id,
+    questId: questId(task.questIndex),
     title: task.title,
-    plannedDate: null,
+    plannedDate: shiftDateKey(today, -task.daysAgo, timeZone),
     estimateMinutes: task.estimateMinutes,
-    done: false,
-    sortOrder: plannedTasks.length + index,
+    actualMinutes: task.actualMinutes,
+    done: true,
+    completedAt: new Date(),
+    sortOrder: sortOrder++,
   }));
 
-  const insertedTasks = await db
-    .insert(tasks)
-    .values([...plannedTasks.map((task) => task.values), ...backlogTasks])
-    .returning({ id: tasks.id });
-
-  const taskIdByKey = new Map(
-    plannedTasks.map((task, index) => [task.key, insertedTasks[index].id]),
-  );
-
-  const entryValues = entrySpecs.map((spec) => {
-    const dateKey = shiftDateKey(today, -spec.daysAgo, timeZone);
-    const key = `${dateKey}|${spec.questIndex ?? "admin"}|${spec.taskTitle}`;
-    const startedAt = new Date(
-      dayRange(dateKey, timeZone).start.getTime() + spec.startHour * 60 * MS_PER_MINUTE,
-    );
+  /**
+   * Today and the next two days, unfinished: the board has to open on a plan
+   * you can work, not on a finished day. One task is already ticked off so the
+   * first column's progress bar and split have something to say.
+   */
+  const upcoming: NewTask[] = DEMO_UPCOMING_TASKS.map((task, index) => {
+    const done = task.daysAhead === 0 && index === 2;
 
     return {
       userId,
-      taskId: taskIdByKey.get(key)!,
-      source: "manual" as const,
-      startedAt,
-      endedAt: new Date(startedAt.getTime() + spec.minutes * MS_PER_MINUTE),
-      durationMinutes: spec.minutes,
+      questId: questId(task.questIndex),
+      title: task.title,
+      plannedDate: shiftDateKey(today, task.daysAhead, timeZone),
+      estimateMinutes: task.estimateMinutes,
+      actualMinutes: done ? task.estimateMinutes + 10 : null,
+      done,
+      completedAt: done ? new Date() : null,
+      sortOrder: sortOrder++,
     };
   });
 
-  await db.insert(timeEntries).values(entryValues);
+  const backlog: NewTask[] = DEMO_BACKLOG_TASKS.map((task) => ({
+    userId,
+    questId: questId(task.questIndex),
+    title: task.title,
+    plannedDate: null,
+    estimateMinutes: task.estimateMinutes,
+    horizon: task.horizon,
+    done: false,
+    sortOrder: sortOrder++,
+  }));
 
-  return {
-    quests: insertedQuests.length,
-    tasks: insertedTasks.length,
-    entries: entryValues.length,
-  };
-}
+  const inserted = await db
+    .insert(tasks)
+    .values([...history, ...upcoming, ...backlog])
+    .returning({ id: tasks.id });
 
-/**
- * A plausible estimate for a task that actually took `minutes`: rounded to the
- * quarter hour and nudged low, because plans are optimistic. Nothing in the app
- * derives estimates from tracked time — this is the seed staging a day that
- * looks planned rather than reconstructed.
- */
-function estimateFor(minutes: number): number {
-  return Math.max(15, Math.round((minutes * 0.9) / 15) * 15);
+  return { quests: insertedQuests.length, tasks: inserted.length };
 }

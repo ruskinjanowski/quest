@@ -55,7 +55,6 @@ async function main() {
       `Seeded ${email} (time zone ${timeZone})`,
       `  ${result.quests} quests`,
       `  ${result.tasks} tasks`,
-      `  ${result.entries} time entries`,
       "",
       `Sign in with ${email} / ${password}`,
     ].join("\n"),

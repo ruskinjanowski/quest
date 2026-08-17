@@ -1,8 +1,8 @@
 # Quest
 
 Other planners ask "what will you do today?" Quest asks **"which quests will you
-advance today?"** — tasks link to high-level quests, time is tracked, and the
-payoff is seeing quest-hours vs. admin-hours.
+advance today?"** — every task carries a quest, every task carries a planned
+and an actual duration, and the payoff is seeing quest-hours vs. admin-hours.
 
 Prototype: Next.js on Vercel, Neon Postgres. See [PRODUCT_PLAN.md](PRODUCT_PLAN.md)
 for scope and priorities, and [docs/tech/](docs/tech/) for how the code is put
@@ -54,13 +54,16 @@ Drizzle ORM · Better Auth · Tailwind v4 · shadcn/ui (Radix) · Recharts · Ve
 
 ## Screens
 
-- **Today** — plan and work the day. "Plan my day" pulls from the backlog and
-  yesterday's leftovers, assigns quests and estimates, and shows the projected
-  quest/admin split before you commit; the day summary tracks plan vs. reality
-  and warns when the list doesn't fit. Timers live on the task rows, grouped
-  under quest-coloured headers, with a read-only timeline of the day beside them.
+- **Home** — the payoff, on arrival: quest vs. admin split for the last seven
+  days, a four-week trend, what today holds, which quests the week is
+  neglecting, and every active quest as a way in.
+- **Today** — the planner. Days as columns, tasks as cards you drag between
+  them, each column totalling its estimates. Start times are projected from the
+  column's order, so reordering moves the day. One line under the first column
+  gives the quest/admin split of the plan; the rail draws it on a clock.
 - **Quests** — list and detail, with status chips, weekly targets and the
   social/milestone stubs.
-- **Insights** — the payoff: quest vs. admin split, per-quest breakdown, four-week
-  trend, timeframe selector.
-- **Settings** — account, privacy stubs, reset demo data.
+- **Backlog** — capture and triage, in six time-horizon buckets from "this week
+  or two" out to "Never", or regrouped by quest.
+- **Settings** — account, calendar and task-planner integration stubs, privacy
+  stubs, reset demo data.

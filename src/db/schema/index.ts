@@ -8,5 +8,4 @@
 export * from "./auth";
 export * from "./quests";
 export * from "./tasks";
-export * from "./time-entries";
 export * from "./relations";

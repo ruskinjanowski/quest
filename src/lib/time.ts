@@ -3,10 +3,8 @@ import {
   addDays,
   addWeeks,
   endOfDay,
-  endOfMonth,
   endOfWeek,
   startOfDay,
-  startOfMonth,
   startOfWeek,
   subWeeks,
 } from "date-fns";
@@ -28,18 +26,6 @@ export type DateRange = {
   /** Exclusive instant. */
   end: Date;
 };
-
-export type Timeframe = "week" | "month" | "all";
-
-export const TIMEFRAMES: readonly { value: Timeframe; label: string }[] = [
-  { value: "week", label: "This week" },
-  { value: "month", label: "This month" },
-  { value: "all", label: "All time" },
-] as const;
-
-export function isTimeframe(value: string | undefined): value is Timeframe {
-  return value === "week" || value === "month" || value === "all";
-}
 
 /** "yyyy-MM-dd" as seen in `timeZone`. */
 export function toDateKey(date: Date, timeZone: string): DateKey {
@@ -88,32 +74,32 @@ export function weekRange(timeZone: string, now: Date = new Date()): DateRange {
   };
 }
 
-export function monthRange(timeZone: string, now: Date = new Date()): DateRange {
-  const local = new TZDate(now.getTime(), timeZone);
-  return {
-    start: new Date(startOfMonth(local).getTime()),
-    end: new Date(endOfMonth(local).getTime() + 1),
-  };
-}
-
-/** Everything ever tracked — still a range, so every query takes the same shape. */
-export function allTimeRange(now: Date = new Date()): DateRange {
-  return { start: new Date(0), end: new Date(now.getTime() + 60_000) };
-}
-
-export function rangeForTimeframe(
-  timeframe: Timeframe,
+/**
+ * `count` consecutive day keys starting at `startKey` — the board's columns.
+ * Built by calendar arithmetic so a DST changeover doesn't skip or repeat a day.
+ */
+export function dayKeysFrom(
+  startKey: DateKey,
+  count: number,
   timeZone: string,
-  now: Date = new Date(),
-): DateRange {
-  switch (timeframe) {
-    case "week":
-      return weekRange(timeZone, now);
-    case "month":
-      return monthRange(timeZone, now);
-    case "all":
-      return allTimeRange(now);
+): DateKey[] {
+  return Array.from({ length: count }, (_, index) =>
+    shiftDateKey(startKey, index, timeZone),
+  );
+}
+
+/** Every day key in a range, oldest first — the week, for aggregation. */
+export function dayKeysInRange(range: DateRange, timeZone: string): DateKey[] {
+  const keys: DateKey[] = [];
+  let key = toDateKey(range.start, timeZone);
+  const last = toDateKey(new Date(range.end.getTime() - 1), timeZone);
+
+  while (key <= last) {
+    keys.push(key);
+    key = shiftDateKey(key, 1, timeZone);
   }
+
+  return keys;
 }
 
 /** The trailing `count` weeks, oldest first — the shape the trend chart wants. */
@@ -142,11 +128,89 @@ export function trailingWeeks(
   });
 }
 
+/**
+ * A window expressed as day keys rather than instants.
+ *
+ * Tasks carry a `date` column, not a timestamp, so every aggregation compares
+ * calendar days. Converting once here keeps `>= fromKey AND <= toKey` the only
+ * shape a query ever needs.
+ */
+export type KeyRange = { fromKey: DateKey; toKey: DateKey; dateKeys: DateKey[] };
+
+export function keyRange(range: DateRange, timeZone: string): KeyRange {
+  const dateKeys = dayKeysInRange(range, timeZone);
+  return { fromKey: dateKeys[0], toKey: dateKeys[dateKeys.length - 1], dateKeys };
+}
+
+export function weekKeys(timeZone: string, now: Date = new Date()): KeyRange {
+  return keyRange(weekRange(timeZone, now), timeZone);
+}
+
+/**
+ * The last `count` days, ending today.
+ *
+ * Used wherever the question is "how have I been doing lately" rather than
+ * "what does this calendar week contain". On a Monday morning the calendar
+ * week is one day old and every quest looks abandoned — which says something
+ * about the calendar, not about the week's work. Week-over-week *series* still
+ * use `trailingWeekKeys`, where the Monday boundary is the whole point.
+ */
+export function rollingDayKeys(
+  count: number,
+  timeZone: string,
+  now: Date = new Date(),
+): KeyRange {
+  const today = todayKey(timeZone, now);
+  const dateKeys = dayKeysFrom(shiftDateKey(today, -(count - 1), timeZone), count, timeZone);
+
+  return { fromKey: dateKeys[0], toKey: dateKeys[dateKeys.length - 1], dateKeys };
+}
+
+/** The trailing `count` weeks as day keys, oldest first — the trend chart's shape. */
+export function trailingWeekKeys(
+  count: number,
+  timeZone: string,
+  now: Date = new Date(),
+): (KeyRange & { label: string })[] {
+  return trailingWeeks(count, timeZone, now).map((week) => ({
+    label: week.label,
+    ...keyRange(week, timeZone),
+  }));
+}
+
 export function formatDayLabel(dateKey: DateKey, timeZone: string): string {
   const { start } = dayRange(dateKey, timeZone);
   return new Intl.DateTimeFormat("en-GB", {
     timeZone,
     weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(start);
+}
+
+/**
+ * "16 Aug" straight from a date key. No time zone involved: the key already
+ * names a calendar day, and turning it back into an instant to format it is
+ * how a label ends up a day out.
+ */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function formatDateKey(dateKey: DateKey): string {
+  const [, month, day] = dateKey.split("-");
+  return `${Number(day)} ${MONTHS[Number(month) - 1] ?? ""}`.trim();
+}
+
+/** "Monday" — the day-column headline. */
+export function formatWeekday(dateKey: DateKey, timeZone: string): string {
+  const { start } = dayRange(dateKey, timeZone);
+  return new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "long" }).format(start);
+}
+
+/** "17 August" — the line under it. */
+export function formatDayAndMonth(dateKey: DateKey, timeZone: string): string {
+  const { start } = dayRange(dateKey, timeZone);
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
     day: "numeric",
     month: "long",
   }).format(start);
@@ -169,11 +233,24 @@ export function dayHeading(
   return new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "long" }).format(start);
 }
 
-/** "09:00" in the user's zone — the timeline's voice. */
+/** "09:00" — the timeline axis's voice. */
 export function formatTimeOfDay(minuteOfDay: number): string {
   const safe = Math.max(0, Math.round(minuteOfDay));
   const hours = Math.floor(safe / 60) % 24;
   return `${String(hours).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
+}
+
+/**
+ * "9:30 am" — the voice on a task card. Twelve-hour on purpose: the projected
+ * start is meant to be read at a glance, the way a diary entry is.
+ */
+export function formatStartTime(minuteOfDay: number): string {
+  const safe = Math.max(0, Math.round(minuteOfDay));
+  const hours24 = Math.floor(safe / 60) % 24;
+  const suffix = hours24 < 12 ? "am" : "pm";
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+
+  return `${hours12}:${String(safe % 60).padStart(2, "0")} ${suffix}`;
 }
 
 export function formatRangeLabel(range: DateRange, timeZone: string): string {

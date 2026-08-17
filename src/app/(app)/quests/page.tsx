@@ -3,8 +3,10 @@ import { EmptyState, PageHeader } from "@/components/page-header";
 import { QuestCard } from "@/features/quests/components/quest-card";
 import { QuestDialog } from "@/features/quests/components/quest-dialog";
 import { listQuestsWithStats } from "@/features/quests/queries";
+import { listNextTaskPerQuest } from "@/features/tasks/queries";
+import { WINDOW_DAYS } from "@/features/home/queries";
 import { requireUser } from "@/lib/session";
-import { weekRange } from "@/lib/time";
+import { rollingDayKeys } from "@/lib/time";
 import { getTimeZone } from "@/lib/timezone.server";
 
 export const metadata: Metadata = { title: "Quests · Quest" };
@@ -16,9 +18,12 @@ export const metadata: Metadata = { title: "Quests · Quest" };
 export default async function QuestsPage() {
   const user = await requireUser();
   const timeZone = await getTimeZone();
-  const range = weekRange(timeZone);
 
-  const quests = await listQuestsWithStats(user.id, range);
+  const [quests, nextTaskByQuest] = await Promise.all([
+    listQuestsWithStats(user.id, rollingDayKeys(WINDOW_DAYS, timeZone)),
+    listNextTaskPerQuest(user.id),
+  ]);
+
   const active = quests.filter((quest) => quest.lifecycle === "active");
   const finished = quests.filter((quest) => quest.lifecycle !== "active");
 
@@ -40,7 +45,12 @@ export default async function QuestsPage() {
         <div className="space-y-10">
           <section className="grid gap-3 sm:grid-cols-2">
             {active.map((quest) => (
-              <QuestCard key={quest.id} quest={quest} rangeLabel="this week" />
+              <QuestCard
+                key={quest.id}
+                quest={quest}
+                rangeLabel="last 7 days"
+                nextTask={nextTaskByQuest.get(quest.id)}
+              />
             ))}
           </section>
 
@@ -51,7 +61,7 @@ export default async function QuestsPage() {
               </h2>
               <div className="grid gap-3 opacity-75 sm:grid-cols-2">
                 {finished.map((quest) => (
-                  <QuestCard key={quest.id} quest={quest} rangeLabel="this week" />
+                  <QuestCard key={quest.id} quest={quest} rangeLabel="last 7 days" />
                 ))}
               </div>
             </section>

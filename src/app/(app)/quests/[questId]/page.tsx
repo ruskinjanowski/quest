@@ -12,19 +12,30 @@ import { QuestDialog } from "@/features/quests/components/quest-dialog";
 import { QuestHealthBadge } from "@/features/quests/components/quest-health-badge";
 import { QuestMenu } from "@/features/quests/components/quest-menu";
 import { SocialDiscoveryStub } from "@/features/quests/components/social-discovery-stub";
+import { QUEST_LIFECYCLE_LABELS } from "@/features/quests/labels";
 import { getQuest, getQuestHistory } from "@/features/quests/queries";
-import { AddTaskForm } from "@/features/tasks/components/add-task-form";
+import type { ScheduleOption } from "@/features/tasks/components/schedule-menu";
 import { TaskList } from "@/features/tasks/components/task-list";
 import { listTasksForQuest } from "@/features/tasks/queries";
+import { WINDOW_DAYS } from "@/features/home/queries";
 import { formatHours } from "@/lib/duration";
 import { requireUser } from "@/lib/session";
-import { shiftDateKey, todayKey, trailingWeeks } from "@/lib/time";
+import {
+  dayHeading,
+  dayKeysFrom,
+  rollingDayKeys,
+  todayKey,
+  trailingWeekKeys,
+} from "@/lib/time";
 import { getTimeZone } from "@/lib/timezone.server";
-import { QUEST_LIFECYCLE_LABELS } from "@/features/quests/labels";
 
 export const metadata: Metadata = { title: "Quest · Quest" };
 
 const HISTORY_WEEKS = 4;
+const SCHEDULABLE_DAYS = 5;
+
+/** How much finished work to list before it stops being useful history. */
+const RECENT_DONE = 8;
 
 export default async function QuestDetailPage({
   params,
@@ -36,17 +47,32 @@ export default async function QuestDetailPage({
   const quest = await getQuest(user.id, questId);
   if (!quest) notFound();
 
-  const weeks = trailingWeeks(HISTORY_WEEKS, timeZone);
-  const [tasks, history] = await Promise.all([
+  const weeks = trailingWeekKeys(HISTORY_WEEKS, timeZone);
+  const [tasks, history, recent] = await Promise.all([
     listTasksForQuest(user.id, quest.id),
     getQuestHistory(user.id, quest.id, weeks),
+    // The headline uses the same rolling window as Home and the quest list, so
+    // the same quest doesn't report two different numbers on two screens.
+    getQuestHistory(user.id, quest.id, [
+      { label: "recent", ...rollingDayKeys(WINDOW_DAYS, timeZone) },
+    ]),
   ]);
 
-  const dateKey = todayKey(timeZone);
-  const thisWeek = history.at(-1)?.minutes ?? 0;
+  const today = todayKey(timeZone);
+  const lately = recent[0]?.minutes ?? 0;
   const peak = Math.max(1, ...history.map((week) => week.minutes));
-  const progress = targetProgress(thisWeek, quest.targetHoursWeek);
+  const progress = targetProgress(lately, quest.targetHoursWeek);
   const questOption = { id: quest.id, name: quest.name, color: quest.color };
+
+  const scheduleOptions: ScheduleOption[] = dayKeysFrom(
+    today,
+    SCHEDULABLE_DAYS,
+    timeZone,
+  ).map((dateKey) => ({ dateKey, label: dayHeading(dateKey, today, timeZone) }));
+
+  const open = tasks.filter((task) => !task.done);
+  const allDone = tasks.filter((task) => task.done);
+  const done = allDone.slice(0, RECENT_DONE);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -58,9 +84,10 @@ export default async function QuestDetailPage({
           </span>
         }
         description={
-          quest.lifecycle === "active"
+          quest.description ??
+          (quest.lifecycle === "active"
             ? undefined
-            : QUEST_LIFECYCLE_LABELS[quest.lifecycle]
+            : QUEST_LIFECYCLE_LABELS[quest.lifecycle])
         }
         actions={
           <>
@@ -69,6 +96,7 @@ export default async function QuestDetailPage({
               quest={{
                 id: quest.id,
                 name: quest.name,
+                description: quest.description,
                 color: quest.color,
                 targetHoursWeek: quest.targetHoursWeek,
               }}
@@ -87,11 +115,11 @@ export default async function QuestDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">This week</CardTitle>
+              <CardTitle className="text-sm font-medium">Last 7 days</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-3xl font-semibold tabular-nums">
-                {formatHours(thisWeek)}
+                {formatHours(lately)}
               </p>
 
               {progress !== null && quest.targetHoursWeek !== null && (
@@ -109,13 +137,16 @@ export default async function QuestDetailPage({
                 </p>
                 <div className="flex items-end gap-2">
                   {history.map((week) => (
-                    <div key={week.label} className="flex flex-1 flex-col items-center gap-1.5">
+                    <div
+                      key={week.label}
+                      className="flex flex-1 flex-col items-center gap-1.5"
+                    >
                       <div className="flex h-20 w-full items-end">
                         <div
                           className="w-full rounded-t"
                           style={{
                             height: `${Math.max(2, (week.minutes / peak) * 100)}%`,
-                            backgroundColor: "var(--primary)",
+                            backgroundColor: "var(--quest)",
                             opacity: week.minutes === 0 ? 0.15 : 0.85,
                           }}
                         />
@@ -132,24 +163,35 @@ export default async function QuestDetailPage({
 
           <section className="space-y-3">
             <h2 className="text-sm font-medium">Tasks</h2>
-            <AddTaskForm
-              quests={[questOption]}
-              plannedDate={dateKey}
-              defaultQuestId={quest.id}
-              placeholder="Add a task to this quest…"
-            />
+
             {tasks.length === 0 ? (
               <EmptyState
                 title="No tasks yet"
-                description="A quest moves forward through tasks. Add the next one."
+                description="A quest moves forward through tasks. Add one from the board or the backlog."
               />
             ) : (
-              <TaskList
-                tasks={tasks}
-                quests={[questOption]}
-                dateKey={dateKey}
-                nextDateKey={shiftDateKey(dateKey, 1, timeZone)}
-              />
+              <div className="space-y-6">
+                <TaskList
+                  tasks={open}
+                  quests={[questOption]}
+                  scheduleOptions={scheduleOptions}
+                />
+
+                {done.length > 0 && (
+                  <div>
+                    <h3 className="text-muted-foreground mb-1 px-2 text-xs font-medium tracking-wide uppercase">
+                      Recently done
+                      {allDone.length > done.length &&
+                        ` · ${done.length} of ${allDone.length}`}
+                    </h3>
+                    <TaskList
+                      tasks={done}
+                      quests={[questOption]}
+                      scheduleOptions={scheduleOptions}
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </section>
         </div>

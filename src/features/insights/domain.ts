@@ -1,18 +1,16 @@
 import { share } from "@/lib/duration";
-import type { DateRange } from "@/lib/time";
-import { entryMinutesInRange } from "../time-tracking/domain";
-import type { TimeEntryLike } from "../time-tracking/domain";
+import { type TimedTask, costOf } from "@/features/tasks/domain";
 
 /**
  * The payoff screen's arithmetic, as pure functions.
  *
  * Nothing here touches the database or React, so the numbers behind the Loom's
  * headline claim can be reasoned about — and tested — on their own. Splits and
- * percentages are never stored; they are always derived from raw entries
- * (PRODUCT_PLAN §5).
+ * percentages are never stored; they are always derived from the tasks
+ * themselves (CLAUDE.md rule 4).
  */
 
-export type EntryForSplit = TimeEntryLike & { questId: string | null };
+export type TaskForSplit = TimedTask & { plannedDate: string | null };
 
 export type QuestMeta = { id: string; name: string; color: string };
 
@@ -22,7 +20,7 @@ export type QuestSlice = {
   name: string;
   color: string;
   minutes: number;
-  /** Fraction of all tracked time in the range. */
+  /** Fraction of all banked time in the range. */
   share: number;
 };
 
@@ -41,19 +39,24 @@ export const ADMIN_LABEL = "Admin";
 /** Hours in a week — the honest, provocative denominator (PRODUCT_PLAN 1.8). */
 export const HOURS_IN_WEEK = 168;
 
+/**
+ * Splits finished work by quest. Only `done` tasks count: an unfinished task is
+ * an intention, and the whole point of the number is that it reports what
+ * actually happened.
+ */
 export function summariseSplit(
-  entries: readonly EntryForSplit[],
-  range: DateRange,
+  tasks: readonly TaskForSplit[],
   questsById: ReadonlyMap<string, QuestMeta>,
-  now: Date = new Date(),
 ): SplitSummary {
   const minutesByQuest = new Map<string | null, number>();
 
-  for (const entry of entries) {
-    const minutes = entryMinutesInRange(entry, range, now);
+  for (const task of tasks) {
+    if (!task.done) continue;
+
+    const minutes = costOf(task);
     if (minutes <= 0) continue;
 
-    const key = entry.questId && questsById.has(entry.questId) ? entry.questId : null;
+    const key = task.questId && questsById.has(task.questId) ? task.questId : null;
     minutesByQuest.set(key, (minutesByQuest.get(key) ?? 0) + minutes);
   }
 
@@ -99,13 +102,17 @@ export type TrendPoint = {
 
 /** One point per week — "did my time match my ambitions" over time. */
 export function weeklyTrend(
-  entries: readonly EntryForSplit[],
-  weeks: readonly (DateRange & { label: string })[],
+  tasks: readonly TaskForSplit[],
+  weeks: readonly { label: string; dateKeys: readonly string[] }[],
   questsById: ReadonlyMap<string, QuestMeta>,
-  now: Date = new Date(),
 ): TrendPoint[] {
   return weeks.map((week) => {
-    const summary = summariseSplit(entries, week, questsById, now);
+    const days = new Set(week.dateKeys);
+    const summary = summariseSplit(
+      tasks.filter((task) => task.plannedDate !== null && days.has(task.plannedDate)),
+      questsById,
+    );
+
     return {
       label: week.label,
       questMinutes: summary.questMinutes,
@@ -115,7 +122,7 @@ export function weeklyTrend(
 }
 
 export type TimeContext = {
-  /** Quest hours as a share of time actually tracked — flattering but easy. */
+  /** Quest hours as a share of time actually banked — flattering but easy. */
   shareOfTracked: number;
   /** Quest hours as a share of the whole week — honest and confronting. */
   shareOfWeek: number;
@@ -123,7 +130,7 @@ export type TimeContext = {
 
 /**
  * PRODUCT_PLAN 1.8 / open question 6: ship both denominators, lead with the
- * tracked share and keep the 168h framing as the subtitle.
+ * banked share and keep the 168h framing as the subtitle.
  */
 export function timeContext(summary: SplitSummary, weeksInRange = 1): TimeContext {
   return {
