@@ -126,16 +126,31 @@ export type TimeContext = {
   shareOfTracked: number;
   /** Quest hours as a share of the whole week — honest and confronting. */
   shareOfWeek: number;
+  /** Admin hours against the same whole-week denominator. */
+  adminShareOfWeek: number;
+  /** The week minus everything banked: sleep, life, and work never logged. */
+  untrackedMinutes: number;
+  /** The denominator itself, so a caller doesn't re-derive the range length. */
+  weekMinutes: number;
 };
 
 /**
  * PRODUCT_PLAN 1.8 / open question 6: ship both denominators, lead with the
  * banked share and keep the 168h framing as the subtitle.
+ *
+ * The whole-week shares exist so the headline bar can be the *week* rather than
+ * just the tracked slice — quests and admin as they really sit against 168
+ * hours, with the unlogged remainder between them.
  */
 export function timeContext(summary: SplitSummary, weeksInRange = 1): TimeContext {
+  const weekMinutes = HOURS_IN_WEEK * 60 * Math.max(1, weeksInRange);
+
   return {
     shareOfTracked: summary.questShare,
-    shareOfWeek: share(summary.questMinutes / 60, HOURS_IN_WEEK * Math.max(1, weeksInRange)),
+    shareOfWeek: share(summary.questMinutes, weekMinutes),
+    adminShareOfWeek: share(summary.adminMinutes, weekMinutes),
+    untrackedMinutes: Math.max(0, weekMinutes - summary.totalMinutes),
+    weekMinutes,
   };
 }
 
