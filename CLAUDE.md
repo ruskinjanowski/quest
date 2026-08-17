@@ -2,8 +2,12 @@
 
 Prototype planner. The product is one metric: **quest-hours vs. admin-hours**.
 Anything that feeds or displays that split outranks anything that doesn't.
-Scope and priorities live in [PRODUCT_PLAN.md](PRODUCT_PLAN.md) — read it before
-proposing features.
+
+Shape: Sunsama's daily planner with quests bolted on top — day columns you drag
+tasks between, a `PLANNED`/`ACTUAL` pair on every task, no timer.
+[REDESIGN.md](REDESIGN.md) is the current design and supersedes the layout
+sections of [PRODUCT_PLAN.md](PRODUCT_PLAN.md); read PRODUCT_PLAN for scope and
+priorities before proposing features.
 
 ## Stack
 
@@ -16,6 +20,8 @@ shadcn/ui with Radix · Recharts. Deployed on Vercel. Package manager: npm.
 - `src/app/` — routes only. Pages are server components: read, then render.
 - `src/features/<feature>/` — `domain.ts` (pure) · `queries.ts` (reads) ·
   `actions.ts` (writes) · `validation.ts` (zod) · `components/`.
+  Today: `quests` · `tasks` · `today` (the board) · `backlog` · `home` ·
+  `insights` (the metric's pure maths) · `auth` · `demo` · `settings`.
 - `src/lib/` — cross-cutting: `session`, `auth`, `time`, `duration`,
   `quest-colors`, `action`, `revalidate`.
 - `src/db/schema/` — one module per table, re-exported from `index.ts`.
@@ -33,21 +39,36 @@ Details and the feature-by-feature landing map: [docs/tech/](docs/tech/).
 3. **Rows in, numbers out.** Queries return rows; aggregation lives in `domain.ts`
    with no db or React imports.
 4. **Derived data is never stored** — no split, total or percentage columns.
-   Everything aggregates over `time_entries` for a date range.
-5. **`quest_id IS NULL` is the Admin bucket.** There is no admin quest row.
-6. **Week starts Monday; time zone comes from the browser** via the `quest_tz`
+   Every number aggregates over `tasks` for a range of day keys.
+5. **Time is two fields on a task**: `estimate_minutes` (`PLANNED`) and
+   `actual_minutes` (`ACTUAL`). Splits report `COALESCE(actual, estimate)` over
+   *done* tasks. There is no timer and no time-entry table — a timer would write
+   into `ACTUAL` and change nothing else.
+6. **`quest_id IS NULL` is the Admin bucket.** There is no admin quest row, and
+   `planned_date IS NULL` is the backlog.
+7. **Week starts Monday; time zone comes from the browser** via the `quest_tz`
    cookie and `getTimeZone()`. Don't reach for `new Date()` in a query — use
-   `src/lib/time.ts`.
-7. **P2 stubs stay labelled** with a `⚠️ STUB` comment and hardcoded data.
+   `src/lib/time.ts`. Headline numbers use a *rolling* seven days
+   (`rollingDayKeys`, `WINDOW_DAYS`) so a Monday morning doesn't read as an
+   abandoned week; week-over-week *series* use `trailingWeekKeys`.
+8. **A day column shows the planned split, Home shows the finished one.** Both
+   are the same arithmetic; a plan asks "what is today for", a week asks "what
+   actually happened".
+9. **P2 stubs stay labelled** with a `⚠️ STUB` comment and hardcoded data.
 
 ## Gotchas
 
 - The Neon HTTP driver has **no interactive transactions**. Express atomicity as
-  one statement or a constraint (see the partial unique index enforcing one
-  running timer per user).
+  one statement or a constraint. A drag sends destination *and* the destination
+  list's new order in one `moveTask` call for the same reason.
 - `src/db/index.ts` connects lazily — don't add a module-level query.
 - The React Compiler lint rules reject synchronous `setState` inside an effect.
-  Live-ticking components take a server `asOf` timestamp instead.
+  Click-to-edit fields hold `null` while not being edited and fall back to the
+  server value, rather than syncing a copy in an effect (`duration-field.tsx`).
+- Recharts' mount animation stalls under the React Compiler and leaves bars
+  short — charts pass `isAnimationActive={false}`.
+- Drag-and-drop is **native HTML5**, no library. Every drag move is also
+  reachable from a menu, because drag is mouse-only.
 
 ## Before finishing
 

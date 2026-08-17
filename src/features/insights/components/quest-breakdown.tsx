@@ -31,10 +31,9 @@ export function QuestBreakdown({ summary }: { summary: SplitSummary }) {
   if (rows.length === 0) return null;
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-medium">Where the time went</h2>
-
-      <ul className="space-y-3">
+    // Headless on purpose: the callers that show this already say what window
+    // it covers, and two headings stacked read as a mistake.
+    <ul className="space-y-3">
         {rows.map((row) => (
           <li key={row.key} className="space-y-1.5">
             <div className="flex items-baseline justify-between gap-3 text-sm">
@@ -61,7 +60,6 @@ export function QuestBreakdown({ summary }: { summary: SplitSummary }) {
             </div>
           </li>
         ))}
-      </ul>
-    </section>
+    </ul>
   );
 }

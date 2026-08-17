@@ -69,9 +69,10 @@ components: read with queries, render, pass the rows down.
 
 | PRODUCT_PLAN item | Where it lands |
 |---|---|
-| 1.2 Plan-my-day ritual | New `features/planning/` — a dialog over Today that batches `updateTask` calls. Nothing else changes. |
-| 1.4 Day calendar column | New column in `app/(app)/today/page.tsx` beside `<TaskList />`; needs a start-time on tasks or reads `time_entries` directly. The only layout-breaking item. |
-| 1.6 Timeframe selector | Already built — `TimeframeTabs` + `rangeForTimeframe`. |
+| 1.2 Plan-my-day ritual | The board *is* the ritual — day columns with running estimate totals (`features/today/`). There is no separate modal. |
+| 1.4 Day calendar column | Built as `ProjectedTimeline`, drawn from `projectStarts()` rather than from stored times. Real timeboxing would need a start-time column on `tasks`. |
+| 1.6 Timeframe selector | Not built. Home reports a rolling seven days (`WINDOW_DAYS`) plus a four-week trend; a selector would parameterise `getHomeOverview`. |
+| A timer | Deliberately cut. It would write into the existing `ACTUAL` field and nothing else would move — see `task-detail-dialog.tsx`. |
 | 1.8 Share-of-time context | Already built — `timeContext()` in `features/insights/domain.ts`. Change the denominator there, once. |
 | 2.3 Canonical quest autocomplete | Static list inside `features/quests/components/quest-dialog.tsx`. |
 | P3 real social | Replace `social-discovery-stub.tsx` with a query. Nothing depends on the stub. |

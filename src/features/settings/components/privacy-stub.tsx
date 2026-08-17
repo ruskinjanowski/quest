@@ -1,3 +1,4 @@
+import { DemoBadge } from "@/components/demo-badge";
 import { QuestDot } from "@/components/quest-dot";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,7 +33,10 @@ export function PrivacyStub({ quests }: { quests: readonly Quest[] }) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Quest visibility</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            Quest visibility
+            <DemoBadge className="ml-auto" hint="Privacy controls are illustrative — disabled and not saved in the prototype." />
+          </CardTitle>
           <CardDescription>
             Private by default. Sharing is an explicit act — per quest, not per account.
             Not wired up in the prototype.
@@ -72,7 +76,10 @@ export function PrivacyStub({ quests }: { quests: readonly Quest[] }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Social links</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            Social links
+            <DemoBadge className="ml-auto" hint="Illustrative — disabled and not saved in the prototype." />
+          </CardTitle>
           <CardDescription>
             Per platform, so what you share on one is not what you share on another.
             Not wired up in the prototype.

@@ -25,15 +25,24 @@ export function QuestPicker({
   quests,
   onChange,
   disabled,
+  compact = false,
   className,
 }: {
   value: string | null;
   quests: readonly QuestOption[];
   onChange: (questId: string | null) => void;
   disabled?: boolean;
+  /**
+   * Drop the name and keep the dot. For rows sitting under a quest-coloured
+   * header, where spelling the quest out again on every line is noise — but
+   * hiding the control altogether would put the app's core interaction behind
+   * a hover.
+   */
+  compact?: boolean;
   className?: string;
 }) {
   const selected = quests.find((quest) => quest.id === value) ?? null;
+  const name = selected?.name ?? "Admin";
 
   return (
     <Select
@@ -43,13 +52,17 @@ export function QuestPicker({
     >
       <SelectTrigger
         size="sm"
-        className={cn("h-7 w-auto gap-1.5 border-dashed text-xs", className)}
-        aria-label="Quest"
+        className={cn(
+          "h-7 w-auto gap-1.5 border-dashed text-xs",
+          compact && "px-1.5",
+          className,
+        )}
+        aria-label={`Quest: ${name}`}
       >
         <SelectValue>
           <span className="flex items-center gap-1.5">
             <QuestDot color={selected?.color ?? null} />
-            <span className="max-w-32 truncate">{selected?.name ?? "Admin"}</span>
+            {!compact && <span className="max-w-32 truncate">{name}</span>}
           </span>
         </SelectValue>
       </SelectTrigger>

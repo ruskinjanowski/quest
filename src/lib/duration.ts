@@ -19,6 +19,20 @@ export function formatClock(minutes: number): string {
   return `${hours}:${String(safe % 60).padStart(2, "0")}`;
 }
 
+/**
+ * "0:45:12" — a *running* timer. `formatClock` resolves to whole minutes, so a
+ * timer you had just started sat on the same number for up to a minute and read
+ * as broken. Seconds are the proof that it's counting; they'd be noise on the
+ * fifty stopped rows around it, which is why this is a separate voice.
+ */
+export function formatStopwatch(minutes: number): string {
+  const total = Math.max(0, Math.floor(minutes * 60));
+  const seconds = total % 60;
+  const wholeMinutes = Math.floor(total / 60);
+
+  return `${Math.floor(wholeMinutes / 60)}:${String(wholeMinutes % 60).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 /** "1h 45m" / "45m" — prose voice, for summaries and estimates. */
 export function formatDuration(minutes: number): string {
   const safe = Math.max(0, Math.round(minutes));

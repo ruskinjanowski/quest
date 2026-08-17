@@ -45,6 +45,7 @@ export async function createQuest(
     .values({
       userId: user.id,
       name: parsed.data.name,
+      description: parsed.data.description ?? null,
       color,
       targetHoursWeek: parsed.data.targetHoursWeek ?? null,
       sortOrder: (highest ?? 0) + 1,

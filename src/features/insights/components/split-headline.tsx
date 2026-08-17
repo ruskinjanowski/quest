@@ -1,14 +1,16 @@
 import { formatHours, formatPercent } from "@/lib/duration";
-import { ADMIN_COLOR } from "@/lib/quest-colors";
 import type { SplitSummary, TimeContext } from "../domain";
-import { HOURS_IN_WEEK } from "../domain";
+import { ADMIN_LABEL, HOURS_IN_WEEK } from "../domain";
 
 /**
  * The product, in one number (PRODUCT_PLAN 0.5). The Loom opens here.
  *
  * Two denominators are shown deliberately (open question 6): the tracked share
- * leads because it is the fair comparison, and the share of the whole week sits
- * underneath because it is the confronting one.
+ * leads in prose because it is the fair comparison, while the *bar* is the whole
+ * 168-hour week because that is the confronting one. Quests grow from the left,
+ * admin from the right, and the hours you never logged sit between them — so the
+ * two bars you care about stay adjacent to their own labels instead of being
+ * pushed apart by a remainder nobody planned.
  */
 export function SplitHeadline({
   summary,
@@ -19,7 +21,10 @@ export function SplitHeadline({
   context: TimeContext;
   rangeLabel: string;
 }) {
-  const questPercent = summary.questShare * 100;
+  // Clamped, not scaled: a week of estimates *can* exceed 168 hours, and the bar
+  // should bottom out at "no slack left" rather than silently rescale the week.
+  const questPercent = Math.min(100, context.shareOfWeek * 100);
+  const adminPercent = Math.min(100 - questPercent, context.adminShareOfWeek * 100);
 
   return (
     <section className="space-y-5 rounded-xl border p-6">
@@ -32,7 +37,7 @@ export function SplitHeadline({
         </div>
 
         <div className="text-right">
-          <p className="text-muted-foreground text-sm">Admin hours</p>
+          <p className="text-muted-foreground text-sm">{ADMIN_LABEL} hours</p>
           <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums opacity-70">
             {formatHours(summary.adminMinutes)}
           </p>
@@ -43,31 +48,35 @@ export function SplitHeadline({
         <div
           className="bg-muted flex h-3 w-full overflow-hidden rounded-full"
           role="img"
-          aria-label={`${formatPercent(summary.questShare)} of tracked time on quests`}
+          aria-label={`Of a ${HOURS_IN_WEEK}-hour week, ${formatHours(summary.questMinutes)} on quests and ${formatHours(summary.adminMinutes)} on ${ADMIN_LABEL.toLowerCase()}; ${formatHours(context.untrackedMinutes)} untracked`}
         >
           <div
-            className="bg-primary h-full"
-            style={{ width: `${questPercent}%` }}
+            className="bg-quest h-full"
+            // A sliver still has to be visible: 20 minutes of a 168-hour week is
+            // 0.2% of the bar, which rounds to nothing on a narrow screen.
+            style={{ width: `${questPercent}%`, minWidth: questPercent > 0 ? 3 : 0 }}
           />
+          <div className="h-full flex-1" />
           <div
-            className="h-full"
-            style={{
-              width: `${100 - questPercent}%`,
-              backgroundColor: ADMIN_COLOR,
-            }}
+            className="bg-admin h-full"
+            style={{ width: `${adminPercent}%`, minWidth: adminPercent > 0 ? 3 : 0 }}
           />
         </div>
 
-        <div className="text-muted-foreground mt-2 flex justify-between text-xs">
-          <span>{formatPercent(summary.questShare)} quests</span>
-          <span>{formatPercent(summary.adminShare)} admin</span>
+        <div className="text-muted-foreground mt-2 grid grid-cols-3 text-xs">
+          <span>{formatPercent(context.shareOfWeek, 1)} quests</span>
+          <span className="text-center">
+            {formatHours(context.untrackedMinutes, 0)} untracked
+          </span>
+          <span className="text-right">
+            {formatPercent(context.adminShareOfWeek, 1)} {ADMIN_LABEL.toLowerCase()}
+          </span>
         </div>
       </div>
 
       <p className="text-muted-foreground text-sm text-balance">
-        {formatPercent(context.shareOfTracked)} of the time you tracked went to your
-        quests — that&apos;s {formatPercent(context.shareOfWeek, 1)} of a{" "}
-        {HOURS_IN_WEEK}-hour week.
+        {formatPercent(context.shareOfTracked)} of the work you finished went to your
+        quests — {formatHours(summary.questMinutes)} out of a {HOURS_IN_WEEK}-hour week.
       </p>
     </section>
   );

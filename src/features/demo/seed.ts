@@ -1,13 +1,23 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { quests, tasks, timeEntries } from "@/db/schema";
-import { MS_PER_MINUTE } from "@/features/time-tracking/domain";
-import { dayRange, todayKey } from "@/lib/time";
+import { type NewTask, quests, tasks } from "@/db/schema";
+import { shiftDateKey, todayKey } from "@/lib/time";
 import {
   DEMO_BACKLOG_TASKS,
+  DEMO_LEFTOVER_TASKS,
   DEMO_QUESTS,
-  buildDemoEntries,
+  DEMO_UPCOMING_TASKS,
+  buildDemoHistory,
 } from "./data";
+
+/** How long ago the finished quest was finished — "Achieved" wants a past. */
+const COMPLETED_QUEST_DAYS_AGO = 24;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function daysAgoInstant(days: number, now: number): Date {
+  return new Date(now - days * DAY_MS);
+}
 
 /**
  * Replaces one user's data with the demo dataset.
@@ -19,11 +29,11 @@ import {
 export async function seedDemoData(
   userId: string,
   options: { timeZone?: string; historyDays?: number } = {},
-): Promise<{ quests: number; tasks: number; entries: number }> {
+): Promise<{ quests: number; tasks: number }> {
   const { timeZone = "UTC", historyDays = 28 } = options;
+  const now = Date.now();
 
   // Order matters only for clarity — the FK cascades would handle it anyway.
-  await db.delete(timeEntries).where(eq(timeEntries.userId, userId));
   await db.delete(tasks).where(eq(tasks.userId, userId));
   await db.delete(quests).where(eq(quests.userId, userId));
 
@@ -33,97 +43,84 @@ export async function seedDemoData(
       DEMO_QUESTS.map((quest, index) => ({
         userId,
         name: quest.name,
+        description: quest.description,
         color: quest.color,
         lifecycle: quest.lifecycle,
         health: quest.health,
         targetHoursWeek: quest.targetHoursWeek,
         sortOrder: index,
-        completedAt: quest.lifecycle === "completed" ? new Date() : null,
+        completedAt:
+          quest.lifecycle === "completed"
+            ? daysAgoInstant(COMPLETED_QUEST_DAYS_AGO, now)
+            : null,
       })),
     )
     .returning({ id: quests.id });
 
+  const questId = (index: number | null) =>
+    index === null ? null : insertedQuests[index].id;
+
   const today = todayKey(timeZone);
-  const entrySpecs = buildDemoEntries(historyDays);
+  let sortOrder = 0;
 
-  /** One task per (day, quest, title) so tracked time lands on realistic rows. */
-  const taskKeys = new Map<string, { title: string; questIndex: number | null; dateKey: string }>();
-
-  for (const spec of entrySpecs) {
-    const dateKey = shiftDateKey(today, -spec.daysAgo, timeZone);
-    const key = `${dateKey}|${spec.questIndex ?? "admin"}|${spec.taskTitle}`;
-    if (!taskKeys.has(key)) {
-      taskKeys.set(key, { title: spec.taskTitle, questIndex: spec.questIndex, dateKey });
-    }
-  }
-
-  const plannedTasks = [...taskKeys.entries()].map(([key, task], index) => ({
-    key,
-    values: {
-      userId,
-      questId: task.questIndex === null ? null : insertedQuests[task.questIndex].id,
-      title: task.title,
-      plannedDate: task.dateKey,
-      // Everything before today is finished; today's list is still in progress.
-      done: task.dateKey !== today,
-      completedAt: task.dateKey !== today ? new Date() : null,
-      sortOrder: index,
-    },
+  /** Four weeks of finished days, each task carrying both numbers. */
+  const history: NewTask[] = buildDemoHistory(historyDays).map((task) => ({
+    userId,
+    questId: questId(task.questIndex),
+    title: task.title,
+    plannedDate: shiftDateKey(today, -task.daysAgo, timeZone),
+    estimateMinutes: task.estimateMinutes,
+    actualMinutes: task.actualMinutes,
+    done: true,
+    // Ticked off on the day it was planned for, not all at once at seed time.
+    completedAt: daysAgoInstant(task.daysAgo, now),
+    sortOrder: sortOrder++,
   }));
 
-  const backlogTasks = DEMO_BACKLOG_TASKS.map((task, index) => ({
+  /**
+   * Today and the next four days. Today opens mid-morning — a couple of things
+   * already ticked off — because the board has to show a plan being worked, not
+   * a blank slate or a finished day.
+   */
+  const upcoming: NewTask[] = DEMO_UPCOMING_TASKS.map((task) => ({
     userId,
-    questId: task.questIndex === null ? null : insertedQuests[task.questIndex].id,
+    questId: questId(task.questIndex),
+    title: task.title,
+    notes: task.notes ?? null,
+    plannedDate: shiftDateKey(today, task.daysAhead, timeZone),
+    estimateMinutes: task.estimateMinutes,
+    actualMinutes: task.done ? (task.actualMinutes ?? task.estimateMinutes) : null,
+    done: task.done ?? false,
+    completedAt: task.done ? new Date(now) : null,
+    sortOrder: sortOrder++,
+  }));
+
+  /** Unfinished days behind us, so "left over from earlier" is demonstrable. */
+  const leftovers: NewTask[] = DEMO_LEFTOVER_TASKS.map((task) => ({
+    userId,
+    questId: questId(task.questIndex),
+    title: task.title,
+    plannedDate: shiftDateKey(today, -task.daysAgo, timeZone),
+    estimateMinutes: task.estimateMinutes,
+    done: false,
+    sortOrder: sortOrder++,
+  }));
+
+  const backlog: NewTask[] = DEMO_BACKLOG_TASKS.map((task) => ({
+    userId,
+    questId: questId(task.questIndex),
     title: task.title,
     plannedDate: null,
+    estimateMinutes: task.estimateMinutes,
+    horizon: task.horizon,
     done: false,
-    sortOrder: plannedTasks.length + index,
+    sortOrder: sortOrder++,
   }));
 
-  const insertedTasks = await db
+  const inserted = await db
     .insert(tasks)
-    .values([...plannedTasks.map((task) => task.values), ...backlogTasks])
+    .values([...history, ...leftovers, ...upcoming, ...backlog])
     .returning({ id: tasks.id });
 
-  const taskIdByKey = new Map(
-    plannedTasks.map((task, index) => [task.key, insertedTasks[index].id]),
-  );
-
-  const entryValues = entrySpecs.map((spec) => {
-    const dateKey = shiftDateKey(today, -spec.daysAgo, timeZone);
-    const key = `${dateKey}|${spec.questIndex ?? "admin"}|${spec.taskTitle}`;
-    const startedAt = new Date(
-      dayRange(dateKey, timeZone).start.getTime() + spec.startHour * 60 * MS_PER_MINUTE,
-    );
-
-    return {
-      userId,
-      taskId: taskIdByKey.get(key)!,
-      source: "manual" as const,
-      startedAt,
-      endedAt: new Date(startedAt.getTime() + spec.minutes * MS_PER_MINUTE),
-      durationMinutes: spec.minutes,
-    };
-  });
-
-  await db.insert(timeEntries).values(entryValues);
-
-  return {
-    quests: insertedQuests.length,
-    tasks: insertedTasks.length,
-    entries: entryValues.length,
-  };
-}
-
-/** Moves a yyyy-MM-dd key by whole days, staying in the user's zone. */
-function shiftDateKey(dateKey: string, days: number, timeZone: string): string {
-  const base = dayRange(dateKey, timeZone).start;
-  const shifted = new Date(base.getTime() + days * 24 * 60 * MS_PER_MINUTE);
-
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(shifted);
+  return { quests: insertedQuests.length, tasks: inserted.length };
 }

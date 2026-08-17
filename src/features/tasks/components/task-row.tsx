@@ -1,137 +1,153 @@
 "use client";
 
-import { CalendarPlus, Clock, MoreHorizontal, Trash2 } from "lucide-react";
+import { FileText, GripVertical } from "lucide-react";
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { LogTimeDialog } from "@/features/time-tracking/components/log-time-dialog";
-import { TimerButton } from "@/features/time-tracking/components/timer-button";
 import {
   QuestPicker,
   type QuestOption,
 } from "@/features/quests/components/quest-picker";
 import { useAction } from "@/hooks/use-action";
-import { formatDuration } from "@/lib/duration";
+import { formatClock } from "@/lib/duration";
 import { cn } from "@/lib/utils";
-import { deleteTask, toggleTask, updateTask } from "../actions";
+import { toggleTask, updateTask } from "../actions";
+import { costOf } from "../domain";
 import type { TaskRow as TaskRowData } from "../queries";
+import { ScheduleMenu, type ScheduleOption } from "./schedule-menu";
+import { TaskDetailDialog } from "./task-detail-dialog";
+
+/** Everything a row needs to be dragged, owned by whichever list orders it. */
+export type RowDrag = {
+  onDragStart: (event: React.DragEvent) => void;
+  onDragEnd: (event: React.DragEvent) => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onDrop: (event: React.DragEvent) => void;
+  dragging: boolean;
+  dropTarget: boolean;
+};
 
 /**
- * One task, everywhere. Timer, quest assignment and completion all sit on the
- * row itself — the plan's "linking must be frictionless" requirement means no
- * detail screen stands between a task and its quest.
+ * One task as a line rather than a card — the backlog and a quest's own task
+ * list, where the day board's projected times mean nothing.
+ *
+ * The quest picker stays on the row: assigning work to a quest is the app's
+ * core interaction (PRODUCT_PLAN 0.2) and must never sit behind a click.
+ * Everything else opens the same detail panel the board's cards open.
  */
 export function TaskRow({
   task,
   quests,
-  dateKey,
-  asOf,
-  showQuestPicker = true,
+  scheduleOptions,
+  showSchedule = true,
+  drag,
 }: {
   task: TaskRowData;
   quests: readonly QuestOption[];
-  /** Which day a manual log should land on. Defaults to today server-side. */
-  dateKey?: string;
-  /** Server render time (ISO), so a running timer can tick without double-counting. */
-  asOf: string;
-  showQuestPicker?: boolean;
+  scheduleOptions: readonly ScheduleOption[];
+  /** Hide the day picker where the list is already about one day. */
+  showSchedule?: boolean;
+  drag?: RowDrag;
 }) {
-  const [logOpen, setLogOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const toggle = useAction(toggleTask);
   const update = useAction(updateTask);
-  const remove = useAction(deleteTask);
 
   return (
-    <li
-      className={cn(
-        "group hover:bg-muted/40 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors",
-        task.done && "opacity-55",
-      )}
-    >
-      <Checkbox
-        checked={task.done}
-        disabled={toggle.pending}
-        aria-label={task.done ? "Mark as not done" : "Mark as done"}
-        onCheckedChange={(checked) => toggle.run({ id: task.id, done: checked === true })}
-      />
-
-      <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-sm", task.done && "line-through")}>{task.title}</p>
-        {task.estimateMinutes !== null && (
-          <p className="text-muted-foreground text-xs">
-            est. {formatDuration(task.estimateMinutes)}
-          </p>
+    <>
+      <li
+        draggable={drag !== undefined}
+        onDragStart={drag?.onDragStart}
+        onDragEnd={drag?.onDragEnd}
+        onDragOver={drag?.onDragOver}
+        onDrop={drag?.onDrop}
+        className={cn(
+          "group hover:bg-muted/40 relative flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-2 py-2 transition-colors",
+          task.done && "opacity-60",
+          drag?.dragging && "opacity-40",
+          drag?.dropTarget &&
+            "before:bg-quest before:absolute before:inset-x-2 before:-top-px before:h-0.5 before:rounded-full",
         )}
-      </div>
+      >
+        {drag && (
+          <GripVertical
+            aria-hidden
+            className="text-muted-foreground/40 group-hover:text-muted-foreground -ml-1 size-4 shrink-0 cursor-grab transition-colors"
+          />
+        )}
 
-      {showQuestPicker && (
-        <QuestPicker
-          value={task.questId}
-          quests={quests}
-          disabled={update.pending}
-          onChange={(questId) => update.run({ id: task.id, questId })}
+        <Checkbox
+          checked={task.done}
+          disabled={toggle.pending}
+          aria-label={task.done ? "Mark as not done" : "Mark as done"}
+          onCheckedChange={(checked) =>
+            toggle.run({
+              id: task.id,
+              done: checked === true,
+              actualMinutes:
+                checked === true ? (task.actualMinutes ?? task.estimateMinutes) : undefined,
+            })
+          }
         />
-      )}
 
-      <TimerButton
-        taskId={task.id}
-        trackedMinutes={task.trackedMinutes}
-        running={task.isRunning}
-        asOf={asOf}
-        disabled={task.done}
-      />
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
-            aria-label="Task actions"
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="min-w-0 flex-1 text-left"
+        >
+          <span
+            className={cn(
+              "flex items-center gap-1.5 text-sm",
+              task.done && "line-through",
+            )}
           >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
+            <span className="truncate" title={task.title}>
+              {task.title}
+            </span>
+            {task.notes && (
+              <FileText
+                aria-label="Has notes"
+                className="text-muted-foreground/70 size-3.5 shrink-0"
+              />
+            )}
+          </span>
+        </button>
 
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setLogOpen(true)}>
-            <Clock className="size-4" /> Log time manually
-          </DropdownMenuItem>
-          {task.plannedDate === null ? (
-            <DropdownMenuItem
-              onSelect={() => update.run({ id: task.id, plannedDate: dateKey ?? null })}
-              disabled={!dateKey}
+        <div className="flex w-full items-center justify-end gap-1.5 pl-7 sm:w-auto sm:pl-0">
+          {(task.estimateMinutes !== null || task.done) && (
+            <span
+              className="text-muted-foreground text-xs tabular-nums"
+              title={task.done ? "Actual" : "Planned"}
             >
-              <CalendarPlus className="size-4" /> Move to today
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onSelect={() => update.run({ id: task.id, plannedDate: null })}>
-              <CalendarPlus className="size-4" /> Move to backlog
-            </DropdownMenuItem>
+              {formatClock(task.done ? costOf(task) : (task.estimateMinutes ?? 0))}
+            </span>
           )}
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={remove.pending}
-            onSelect={() => remove.run(task.id)}
-          >
-            <Trash2 className="size-4" /> Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
 
-      <LogTimeDialog
-        taskId={task.id}
-        taskTitle={task.title}
-        dateKey={dateKey}
-        open={logOpen}
-        onOpenChange={setLogOpen}
+          <QuestPicker
+            value={task.questId}
+            quests={quests}
+            disabled={update.pending}
+            onChange={(questId) => update.run({ id: task.id, questId })}
+            className="border-transparent"
+          />
+
+          {showSchedule && (
+            <ScheduleMenu
+              value={task.plannedDate}
+              options={scheduleOptions}
+              disabled={update.pending}
+              onSelect={(plannedDate) => update.run({ id: task.id, plannedDate })}
+            />
+          )}
+        </div>
+      </li>
+
+      <TaskDetailDialog
+        task={task}
+        quests={quests}
+        scheduleOptions={scheduleOptions}
+        open={open}
+        onOpenChange={setOpen}
       />
-    </li>
+    </>
   );
 }

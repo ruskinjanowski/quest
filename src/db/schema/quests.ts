@@ -30,6 +30,8 @@ export const quests = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /** Why this quest matters — shown on its detail page, nowhere else. */
+    description: text("description"),
     /** Key into the palette in `src/lib/quest-colors.ts`, not a raw hex value. */
     color: text("color").notNull().default("violet"),
     lifecycle: questLifecycleEnum("lifecycle").notNull().default("active"),

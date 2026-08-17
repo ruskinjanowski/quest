@@ -54,9 +54,16 @@ src/
   lib/                      cross-cutting: auth, session, time, duration, colours
 ```
 
-Features today: `quests`, `tasks`, `time-tracking`, `insights`, `auth`, `demo`,
-`settings`. A feature owns its vocabulary; anything two features need moves to
-`src/lib`.
+Features today: `quests`, `tasks`, `today`, `backlog`, `home`, `insights`,
+`auth`, `demo`, `settings`. A feature owns its vocabulary; anything two features
+need moves to `src/lib`.
+
+`tasks/domain.ts` and `insights/domain.ts` are the same measurement pointed in
+opposite directions: the first summarises a *day* from its estimates (what today
+is for), the second aggregates a *window* from finished work (what actually
+happened). Both are pure, both read the same two fields on a task — `PLANNED`
+(`estimate_minutes`) and `ACTUAL` (`actual_minutes`, falling back to the
+estimate). There is no timer and no time-entry table.
 
 ## Conventions that matter
 
@@ -70,12 +77,12 @@ from a URL updates nothing rather than someone else's row.
 `useAction` hook, which handles pending state and error toasts in one place.
 
 **Mutations revalidate the workspace as a unit.** Changing a task's quest moves
-numbers on Today, Quests and Insights at once, so actions call
+numbers on Home, the board, the backlog and Quests at once, so actions call
 `revalidateWorkspace()` rather than each guessing which pages care.
 
 **Derived data is never stored.** No split, percentage or per-quest total lives
-in a column. Everything is a date-range aggregation over `time_entries`, which
-is what makes the timeframe selector cheap.
+in a column. Every number is an aggregation over `tasks` for a range of day
+keys, which is what keeps a new cut of the data a pure function away.
 
 **Stubs are labelled.** P2 features (social discovery, milestones, privacy
 controls) are components with a `⚠️ STUB` header comment and hardcoded data, so
@@ -85,9 +92,18 @@ nobody mistakes them for shipped behaviour.
 
 - **No interactive transactions.** The Neon HTTP driver doesn't have them.
   Anything that must be atomic is expressed as a single statement or a database
-  constraint — see the partial unique index enforcing one running timer per user.
+  constraint. A drag writes destination and order in one `moveTask` action for
+  the same reason: two round trips would let the board render a task in the
+  right column at the wrong position.
 - **No test framework yet.** The `domain.ts` files are written to be trivially
   testable when one is added; nothing else in the repo depends on that decision.
-- **No calendar column.** PRODUCT_PLAN §3 leaves it open. Today is list-first
-  with quest-coloured grouping, and the layout was chosen so a timeline column
-  can be added on the right without restructuring.
+- **Tasks have a duration but no time of day.** The clock on a card is
+  projected by `projectStarts()` from the column's order, starting at
+  `DAY_START_MINUTE`. Nothing is stored, which is what makes reordering
+  meaningful — and what keeps the list and the timeline rail from disagreeing.
+  Real timeboxing would need a start-time column; that is where the decision
+  should be re-opened, not in the component.
+- **Drag is native HTML5, not a library.** It is the one interaction the
+  category is known for, so it is built (day↔day, backlog buckets, reorder) —
+  but every move is also reachable from the row's own schedule menu, because
+  drag is mouse-only and a demo needs a path that can't miss.

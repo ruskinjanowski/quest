@@ -1,16 +1,22 @@
+import type { TaskHorizon } from "@/db/schema";
 import type { QuestColorKey } from "@/lib/quest-colors";
 
 /**
  * The demo dataset, as data rather than SQL.
  *
  * PRODUCT_PLAN §5 wants ~4 weeks of history for 3–4 quests plus admin, written
- * *before* Insights gets polished so the charts render something real. It is
- * generated from a seeded PRNG so every reseed produces the same story — the
- * Loom can be re-shot without the numbers moving.
+ * *before* the payoff screen gets polished so the charts render something real.
+ * It is generated from a seeded PRNG so every reseed produces the same story —
+ * the Loom can be re-shot without the numbers moving.
+ *
+ * Since there is no timer, history is just tasks: each carries a `PLANNED`
+ * estimate and, once done, an `ACTUAL` that misses it a little in either
+ * direction. That gap is the thing the day headers and quest pages report.
  */
 
 export type DemoQuest = {
   name: string;
+  description: string;
   color: QuestColorKey;
   targetHoursWeek: number | null;
   health: "on_track" | "at_risk" | "off_track" | "achieved" | null;
@@ -23,6 +29,7 @@ export type DemoQuest = {
 export const DEMO_QUESTS: DemoQuest[] = [
   {
     name: "Learn Spanish",
+    description: "So I can hold a real conversation on the trip in March.",
     color: "teal",
     targetHoursWeek: 3,
     health: "on_track",
@@ -37,6 +44,7 @@ export const DEMO_QUESTS: DemoQuest[] = [
   },
   {
     name: "Ship side project",
+    description: "Get it in front of real users instead of rebuilding the data layer again.",
     color: "violet",
     targetHoursWeek: 6,
     health: "on_track",
@@ -51,6 +59,7 @@ export const DEMO_QUESTS: DemoQuest[] = [
   },
   {
     name: "Get strong",
+    description: "Three sessions a week. The number that matters is showing up.",
     color: "orange",
     targetHoursWeek: 6,
     health: "at_risk",
@@ -60,6 +69,7 @@ export const DEMO_QUESTS: DemoQuest[] = [
   },
   {
     name: "Read 12 books",
+    description: "Twelve down over the year — and the habit stuck.",
     color: "amber",
     targetHoursWeek: null,
     health: "achieved",
@@ -78,10 +88,139 @@ export const DEMO_ADMIN_TASKS = [
   "Slack catch-up",
 ];
 
-export const DEMO_BACKLOG_TASKS: { title: string; questIndex: number | null }[] = [
-  { title: "Plan next month's Spanish goals", questIndex: 0 },
-  { title: "Sketch the pricing page", questIndex: 1 },
-  { title: "Renew domain", questIndex: null },
+/**
+ * The unplanned pool, spread across the horizon buckets so the backlog reads as
+ * a triage surface on camera rather than one flat list — "Never" included,
+ * because that bucket is the honest half of the idea.
+ */
+export const DEMO_BACKLOG_TASKS: {
+  title: string;
+  questIndex: number | null;
+  estimateMinutes: number | null;
+  horizon: TaskHorizon;
+}[] = [
+  { title: "Sketch the pricing page", questIndex: 1, estimateMinutes: 90, horizon: "week" },
+  { title: "Write the launch email", questIndex: 1, estimateMinutes: 30, horizon: "week" },
+  { title: "Book a physio appointment", questIndex: 2, estimateMinutes: 15, horizon: "week" },
+  { title: "Renew domain", questIndex: null, estimateMinutes: 15, horizon: "month" },
+  { title: "Plan next month's Spanish goals", questIndex: 0, estimateMinutes: 30, horizon: "month" },
+  { title: "Find a conversation tutor", questIndex: 0, estimateMinutes: 45, horizon: "quarter" },
+  { title: "Run a half marathon", questIndex: 2, estimateMinutes: 120, horizon: "year" },
+  { title: "Learn to sail", questIndex: null, estimateMinutes: null, horizon: "someday" },
+  { title: "Rewrite the whole thing in Rust", questIndex: 1, estimateMinutes: null, horizon: "never" },
+];
+
+export type DemoUpcomingTask = {
+  /** Days from today. 0 = today. */
+  daysAhead: number;
+  questIndex: number | null;
+  title: string;
+  estimateMinutes: number;
+  /** Already ticked off — today opens mid-morning, not on a blank slate. */
+  done?: boolean;
+  /** `ACTUAL`, only meaningful once `done`. Null falls back to the estimate. */
+  actualMinutes?: number;
+  notes?: string;
+};
+
+/**
+ * The planned week: today plus the next four days.
+ *
+ * Today is deliberately *in progress* rather than untouched — two things
+ * finished, the rest still to come — so the day header's split, the progress
+ * bar and the projected timeline all have something to say the moment the board
+ * opens. The days after it thin out, which is what a real plan looks like.
+ *
+ * Today's estimates total under six hours so the projection lands inside the
+ * timeline's 09:00–21:00 rail instead of running off the bottom of it.
+ */
+export const DEMO_UPCOMING_TASKS: DemoUpcomingTask[] = [
+  // Today — the two finished ones lead, matching the projected order.
+  {
+    daysAhead: 0,
+    questIndex: null,
+    title: "Inbox triage",
+    estimateMinutes: 30,
+    done: true,
+    actualMinutes: 25,
+  },
+  {
+    daysAhead: 0,
+    questIndex: 1,
+    title: "Build the onboarding flow",
+    estimateMinutes: 90,
+    done: true,
+    actualMinutes: 115,
+    notes: "Empty state, first-run checklist, and the welcome email copy.",
+  },
+  {
+    daysAhead: 0,
+    questIndex: 0,
+    title: "Conversation exchange",
+    estimateMinutes: 45,
+    notes: "30 minutes with María, then write down whatever I fumbled.",
+  },
+  { daysAhead: 0, questIndex: null, title: "Weekly team sync", estimateMinutes: 45 },
+  { daysAhead: 0, questIndex: 2, title: "Gym — push day", estimateMinutes: 60 },
+  {
+    daysAhead: 0,
+    questIndex: 1,
+    title: "Fix the billing bug",
+    estimateMinutes: 60,
+    notes: "Proration is wrong when a plan changes mid-cycle.",
+  },
+
+  // Tomorrow.
+  {
+    daysAhead: 1,
+    questIndex: 1,
+    title: "Write the launch post",
+    estimateMinutes: 90,
+    notes: "Lead with the quest-hours number, not the feature list.",
+  },
+  { daysAhead: 1, questIndex: 0, title: "Duolingo session", estimateMinutes: 20 },
+  { daysAhead: 1, questIndex: null, title: "Recruiter calls", estimateMinutes: 45 },
+  { daysAhead: 1, questIndex: 2, title: "Long run", estimateMinutes: 75 },
+
+  // Day after.
+  { daysAhead: 2, questIndex: 1, title: "Refactor the data layer", estimateMinutes: 120 },
+  { daysAhead: 2, questIndex: 2, title: "Gym — pull day", estimateMinutes: 60 },
+  { daysAhead: 2, questIndex: null, title: "Expense report", estimateMinutes: 30 },
+  {
+    daysAhead: 2,
+    questIndex: 0,
+    title: "Watch an episode with subtitles",
+    estimateMinutes: 45,
+  },
+
+  // Thinning out — a plan you believe, not a plan you filled in.
+  { daysAhead: 3, questIndex: 1, title: "Polish the empty states", estimateMinutes: 90 },
+  { daysAhead: 3, questIndex: 0, title: "Vocabulary review", estimateMinutes: 30 },
+  { daysAhead: 3, questIndex: null, title: "Invoicing", estimateMinutes: 45 },
+  { daysAhead: 4, questIndex: 1, title: "Ship the beta to five users", estimateMinutes: 60 },
+  { daysAhead: 4, questIndex: 2, title: "Mobility session", estimateMinutes: 30 },
+];
+
+/**
+ * Unfinished work from days already gone — the "left over from earlier" row.
+ *
+ * Two of them, on purpose: enough to demo pulling yesterday's leftovers onto
+ * today, few enough that the board doesn't open on a pile of guilt.
+ */
+export const DEMO_LEFTOVER_TASKS: {
+  /** Days before today. 1 = yesterday. */
+  daysAgo: number;
+  questIndex: number | null;
+  title: string;
+  estimateMinutes: number;
+}[] = [
+  {
+    daysAgo: 1,
+    questIndex: 1,
+    title: "Reply to the beta feedback thread",
+    estimateMinutes: 30,
+  },
+  { daysAgo: 2, questIndex: null, title: "Slack catch-up", estimateMinutes: 20 },
 ];
 
 /** Deterministic PRNG — same seed, same demo story, every reseed. */
@@ -96,42 +235,41 @@ export function createRandom(seed: number): () => number {
   };
 }
 
-export type DemoEntry = {
-  /** Days before today. 0 = today. */
+export type DemoTask = {
+  /** Days before today. 1 = yesterday; today is staged separately. */
   daysAgo: number;
   questIndex: number | null;
-  taskTitle: string;
-  minutes: number;
-  /** Hour of the day the entry starts, in the user's zone. */
-  startHour: number;
+  title: string;
+  estimateMinutes: number;
+  actualMinutes: number;
 };
 
-/** Share of tracked time going to quests in the oldest week, and per-week gain. */
+/** Share of finished time going to quests in the oldest week, and per-week gain. */
 const QUEST_SHARE_START = 0.36;
 const QUEST_SHARE_STEP = 0.1;
 
 /**
- * Builds ~4 weeks of tracked time.
+ * Builds ~4 weeks of finished tasks.
  *
  * The generator works from an explicit daily budget rather than flipping a coin
- * per session: each day gets a number of minutes, split quest/admin by the
- * week's target share, and the quest half is divided between quests in
- * proportion to their weight.
+ * per task: each day gets a number of minutes, split quest/admin by the week's
+ * target share, and the quest half is divided between quests in proportion to
+ * their weight.
  *
- * The earlier coin-flip version produced a trend line that read as noise —
- * per-session variance swamped the drift. The arc *is* the point of that chart
+ * An earlier coin-flip version produced a trend line that read as noise —
+ * per-task variance swamped the drift. The arc *is* the point of that chart
  * (PRODUCT_PLAN 1.5), so it is modelled directly rather than hoped for.
  */
-export function buildDemoEntries(days = 28, seed = 20260823): DemoEntry[] {
+export function buildDemoHistory(days = 28, seed = 20260823): DemoTask[] {
   const random = createRandom(seed);
-  const entries: DemoEntry[] = [];
+  const tasks: DemoTask[] = [];
 
-  for (let daysAgo = days - 1; daysAgo >= 0; daysAgo--) {
-    const dayIndex = days - 1 - daysAgo; // 0 = oldest day
+  for (let daysAgo = days; daysAgo >= 1; daysAgo--) {
+    const dayIndex = days - daysAgo; // 0 = oldest day
     const weekIndex = Math.floor(dayIndex / 7);
     const isWeekend = dayIndex % 7 >= 5;
 
-    // Roughly 16–18h tracked a week, thinner at weekends.
+    // Roughly 16–18h of finished work a week, thinner at weekends.
     const budget = isWeekend
       ? 70 + Math.round(random() * 50)
       : 175 + Math.round(random() * 70);
@@ -146,7 +284,6 @@ export function buildDemoEntries(days = 28, seed = 20260823): DemoEntry[] {
 
     const questMinutes = roundTo5(budget * questShare);
     const adminMinutes = roundTo5(budget - questMinutes);
-    let startHour = isWeekend ? 10 : 9;
 
     // One or two quests a day — nobody advances four things before lunch.
     const chosen = pickWeightedDistinct(
@@ -166,37 +303,45 @@ export function buildDemoEntries(days = 28, seed = 20260823): DemoEntry[] {
 
     for (const questIndex of chosen) {
       const quest = DEMO_QUESTS[questIndex];
-      const minutes = roundTo5((questMinutes * quest.weight) / chosenWeight);
-      if (minutes < 15) continue;
+      const actual = roundTo5((questMinutes * quest.weight) / chosenWeight);
+      if (actual < 15) continue;
 
-      entries.push({
+      tasks.push({
         daysAgo,
         questIndex,
-        taskTitle: quest.taskTitles[Math.floor(random() * quest.taskTitles.length)],
-        minutes,
-        startHour,
+        title: quest.taskTitles[Math.floor(random() * quest.taskTitles.length)],
+        estimateMinutes: estimateFor(actual, random),
+        actualMinutes: actual,
       });
-      startHour += 2;
     }
 
     // Admin arrives in one or two chunks, never as a single heroic block.
     const adminChunks = adminMinutes > 75 ? 2 : 1;
     for (let chunk = 0; chunk < adminChunks; chunk++) {
-      const minutes = roundTo5(adminMinutes / adminChunks);
-      if (minutes < 10) continue;
+      const actual = roundTo5(adminMinutes / adminChunks);
+      if (actual < 10) continue;
 
-      entries.push({
+      tasks.push({
         daysAgo,
         questIndex: null,
-        taskTitle: DEMO_ADMIN_TASKS[Math.floor(random() * DEMO_ADMIN_TASKS.length)],
-        minutes,
-        startHour,
+        title: DEMO_ADMIN_TASKS[Math.floor(random() * DEMO_ADMIN_TASKS.length)],
+        estimateMinutes: estimateFor(actual, random),
+        actualMinutes: actual,
       });
-      startHour += 2;
     }
   }
 
-  return entries;
+  return tasks;
+}
+
+/**
+ * A plausible estimate for a task that actually took `actual`: rounded to the
+ * quarter hour and, more often than not, optimistic — which is what makes the
+ * planned-versus-actual gap on the day header worth looking at.
+ */
+function estimateFor(actual: number, random: () => number): number {
+  const bias = 0.8 + random() * 0.35;
+  return Math.max(15, Math.round((actual * bias) / 15) * 15);
 }
 
 function clamp(value: number, min: number, max: number): number {

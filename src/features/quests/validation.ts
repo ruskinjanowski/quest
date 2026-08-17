@@ -19,8 +19,17 @@ export const questHealthSchema = z.enum([
   "achieved",
 ]);
 
+/** Empty is stored as null, so "no description" is one value rather than two. */
+const descriptionField = z
+  .string()
+  .trim()
+  .max(600)
+  .transform((value) => (value.length > 0 ? value : null))
+  .nullable();
+
 export const createQuestSchema = z.object({
   name: z.string().trim().min(1, "Give the quest a name.").max(120),
+  description: descriptionField.optional(),
   color: questColorSchema.optional(),
   targetHoursWeek: z.number().int().min(1).max(168).nullable().optional(),
 });
@@ -28,6 +37,7 @@ export const createQuestSchema = z.object({
 export const updateQuestSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1, "Give the quest a name.").max(120).optional(),
+  description: descriptionField.optional(),
   color: questColorSchema.optional(),
   health: questHealthSchema.nullable().optional(),
   targetHoursWeek: z.number().int().min(1).max(168).nullable().optional(),

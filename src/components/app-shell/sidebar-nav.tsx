@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CalendarDays, Settings, Swords } from "lucide-react";
+import { CalendarDays, Home, Inbox, Settings, Swords, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,9 +10,13 @@ import { cn } from "@/lib/utils";
  * spent on Insights and the quest colouring, not here.
  */
 const NAV_ITEMS = [
+  { href: "/home", label: "Home", icon: Home },
   { href: "/today", label: "Today", icon: CalendarDays },
   { href: "/quests", label: "Quests", icon: Swords },
-  { href: "/insights", label: "Insights", icon: BarChart3 },
+  // Directly under Quests because it's a lens on them, not a separate area.
+  // The only item pointing at hardcoded data — see `features/discover/data.ts`.
+  { href: "/discover", label: "Shared", icon: Users },
+  { href: "/backlog", label: "Backlog", icon: Inbox },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -20,7 +24,11 @@ export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-1 lg:flex-col">
+    // A fixed grid on phones rather than a flex row: the row sized itself from
+    // its labels and pushed the last item off the right edge at 375px. The
+    // column count tracks NAV_ITEMS — six columns at 375px leave ~55px each,
+    // which the longest label ("Settings") still clears at this size.
+    <nav className="grid grid-cols-6 gap-1 lg:flex lg:flex-col">
       {NAV_ITEMS.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
@@ -30,14 +38,17 @@ export function SidebarNav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              // Stacked on phones: the account row now shares the bar, and a
+              // side-by-side icon and label no longer leave enough width for
+              // "Backlog" to render unclipped.
+              "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-medium transition-colors lg:flex-row lg:justify-start lg:gap-2.5 lg:px-3 lg:py-2 lg:text-sm",
               active
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             )}
           >
-            <item.icon className="size-4" />
-            {item.label}
+            <item.icon className="size-4 shrink-0" />
+            <span className="truncate">{item.label}</span>
           </Link>
         );
       })}
