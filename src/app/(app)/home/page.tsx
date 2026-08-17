@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SharedQuestsStrip } from "@/features/discover/components/shared-quests-strip";
 import { AttentionCard } from "@/features/home/components/attention-card";
 import { TodayCard } from "@/features/home/components/today-card";
 import { getHomeOverview } from "@/features/home/queries";
@@ -121,6 +122,11 @@ export default async function HomePage() {
                 />
               ))}
             </div>
+
+            {/* Social's whole footprint on this page. It sits under the quest
+                cards rather than beside the split on purpose — see the note in
+                `shared-quests-strip.tsx`. */}
+            <SharedQuestsStrip quests={overview.quests} />
           </section>
         </>
       )}

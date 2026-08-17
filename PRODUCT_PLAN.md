@@ -65,7 +65,7 @@ Priorities:
 
 | # | Feature | Notes |
 |---|---------|-------|
-| 2.1 | **Social discovery panel** on quest detail — "142 people share this quest", "people on this quest also pursue…" | Passive inspiration, not competition. Hardcoded numbers. Makes the phase-two moat tangible without building any of it. |
+| 2.1 | **Social discovery** — a panel on quest detail ("412 people share this quest", "people on this quest also pursue…") opening onto a browsable `/discover`: quest buckets → the people in one → a profile with their hours, their rhythm and their links | Passive inspiration, not competition — ordered by recent activity, never by hours. Hardcoded (`features/discover/data.ts`). Home carries one line under Active quests and nothing more: the split stays the point of that page. |
 | 2.2 | **Privacy controls stub** in Settings — per-quest visibility (private / anonymous / public), social links per platform | Doesn't need to function. Shows the model: *private by default, sharing is an explicit act, per-quest and per-platform.* Say that line in the Loom. |
 | 2.3 | **Canonical quest autocomplete hint** — typing a quest name suggests an existing canonical quest with a member count | Only if trivially cheap (static list). Demonstrates the embedding/canonicalisation idea from the plan in one interaction. |
 | 2.4 | **Milestones on quest detail** — a static list of milestones with status chips under a quest | Mirrors Focus.so's Jahresziel → Meilensteine structure without committing the data model to a hierarchy. Display-only is enough for the Loom. |

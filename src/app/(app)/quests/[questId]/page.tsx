@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { targetProgress } from "@/features/insights/domain";
+import { QuestSocialCard } from "@/features/discover/components/quest-social-card";
 import { MilestonesStub } from "@/features/quests/components/milestones-stub";
 import { QuestDialog } from "@/features/quests/components/quest-dialog";
 import { QuestHealthBadge } from "@/features/quests/components/quest-health-badge";
 import { QuestMenu } from "@/features/quests/components/quest-menu";
-import { SocialDiscoveryStub } from "@/features/quests/components/social-discovery-stub";
 import { QUEST_LIFECYCLE_LABELS } from "@/features/quests/labels";
 import { getQuest, getQuestHistory } from "@/features/quests/queries";
 import type { ScheduleOption } from "@/features/tasks/components/schedule-menu";
@@ -197,7 +197,7 @@ export default async function QuestDetailPage({
         </div>
 
         <div className="space-y-6">
-          <SocialDiscoveryStub questName={quest.name} />
+          <QuestSocialCard questName={quest.name} />
           <MilestonesStub />
         </div>
       </div>

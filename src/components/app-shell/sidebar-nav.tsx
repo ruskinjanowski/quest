@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Home, Inbox, Settings, Swords } from "lucide-react";
+import { CalendarDays, Home, Inbox, Settings, Swords, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,9 @@ const NAV_ITEMS = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/today", label: "Today", icon: CalendarDays },
   { href: "/quests", label: "Quests", icon: Swords },
+  // Directly under Quests because it's a lens on them, not a separate area.
+  // The only item pointing at hardcoded data — see `features/discover/data.ts`.
+  { href: "/discover", label: "Shared", icon: Users },
   { href: "/backlog", label: "Backlog", icon: Inbox },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -22,8 +25,10 @@ export function SidebarNav() {
 
   return (
     // A fixed grid on phones rather than a flex row: the row sized itself from
-    // its labels and pushed the last item off the right edge at 375px.
-    <nav className="grid grid-cols-5 gap-1 lg:flex lg:flex-col">
+    // its labels and pushed the last item off the right edge at 375px. The
+    // column count tracks NAV_ITEMS — six columns at 375px leave ~55px each,
+    // which the longest label ("Settings") still clears at this size.
+    <nav className="grid grid-cols-6 gap-1 lg:flex lg:flex-col">
       {NAV_ITEMS.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
